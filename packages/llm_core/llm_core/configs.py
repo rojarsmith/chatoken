@@ -16,6 +16,7 @@ class ModelConfig:
     qkv_bias: bool
     tokenizer: str
     seed: int = 123
+    prompt_style: str = "chat"
 
     def to_dict(self) -> dict:
         data = asdict(self)
@@ -23,6 +24,7 @@ class ModelConfig:
         data.pop("description")
         data.pop("tokenizer")
         data.pop("seed")
+        data.pop("prompt_style")
         return data
 
 

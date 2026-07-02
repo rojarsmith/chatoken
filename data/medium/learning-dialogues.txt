@@ -1,0 +1,35 @@
+User: Every effort moves you
+Assistant: Every effort moves you forward.
+
+User: What does training do
+Assistant: Training reduces prediction error by updating model weights.
+
+User: Why does loss matter
+Assistant: Loss is a number that shows how wrong the model was on the next-token prediction.
+
+User: What is overfitting
+Assistant: Overfitting happens when a model memorizes a small dataset instead of learning a broad pattern.
+
+User: Why use a tiny dataset
+Assistant: A tiny dataset makes the first learning signal visible in a short run.
+
+User: Why use a larger dataset
+Assistant: A larger dataset gives the model more varied examples, but it usually needs more training steps.
+
+User: What is a checkpoint
+Assistant: A checkpoint stores the trained model state so it can be loaded later.
+
+User: How should I compare models
+Assistant: Use the same prompt, the same generation settings, and compare the outputs side by side.
+
+User: Every effort moves you
+Assistant: Every effort moves you forward.
+
+User: What does training do
+Assistant: Training reduces prediction error by updating model weights.
+
+User: Why does loss matter
+Assistant: Loss is a number that shows how wrong the model was on the next-token prediction.
+
+User: What is overfitting
+Assistant: Overfitting happens when a model memorizes a small dataset instead of learning a broad pattern.

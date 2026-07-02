@@ -4,3 +4,4 @@ pydantic>=2.10
 tiktoken>=0.8
 numpy>=1.26
 torch>=2.0
+requests>=2.32

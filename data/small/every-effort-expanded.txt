@@ -1,0 +1,23 @@
+User: Every effort moves you
+Assistant: Every effort moves you forward.
+
+User: Small steps compound
+Assistant: Small steps compound into visible progress.
+
+User: Practice makes patterns
+Assistant: Practice makes patterns easier to repeat.
+
+User: Careful feedback improves work
+Assistant: Careful feedback improves work one revision at a time.
+
+User: Every effort moves you
+Assistant: Every effort moves you forward.
+
+User: Small steps compound
+Assistant: Small steps compound into visible progress.
+
+User: Practice makes patterns
+Assistant: Practice makes patterns easier to repeat.
+
+User: Careful feedback improves work
+Assistant: Careful feedback improves work one revision at a time.

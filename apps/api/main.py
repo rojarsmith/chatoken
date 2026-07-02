@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from apps.api.services.chat_service import ChatRequestData, ChatService
+from apps.api.services.pretrained_service import PretrainedService
 from apps.api.services.training_service import TrainingRequestData, TrainingService
 
 
@@ -30,9 +31,11 @@ app.add_middleware(
 
 chat_service = ChatService()
 training_service = TrainingService(chat_service)
+pretrained_service = PretrainedService(chat_service)
 executor = ThreadPoolExecutor(max_workers=1)
 chat_jobs_lock = Lock()
 training_jobs_lock = Lock()
+pretrained_jobs_lock = Lock()
 
 
 class ChatRequest(BaseModel):
@@ -59,11 +62,16 @@ class TrainingRequest(BaseModel):
     output_model_id: str = "trained-tiny-byte"
     max_steps: int = Field(80, ge=1, le=2_000)
     batch_size: int = Field(4, ge=1, le=64)
-    block_size: int = Field(32, ge=2, le=64)
+    block_size: int = Field(32, ge=2, le=1024)
     learning_rate: float = Field(3e-3, gt=0.0, le=1.0)
     eval_every: int = Field(10, ge=1, le=500)
     sample_prompt: str = Field("Every effort moves you", min_length=1)
     load_when_complete: bool = True
+
+
+class PretrainedLoadRequest(BaseModel):
+    model_size: str = "124M"
+    model_id: str | None = None
 
 
 class ModelLoadRequest(BaseModel):
@@ -94,8 +102,21 @@ class TrainingJob:
     error: str | None = None
 
 
+@dataclass
+class PretrainedJob:
+    job_id: str
+    status: Literal["queued", "running", "succeeded", "failed"]
+    created_at: str
+    updated_at: str
+    request: dict
+    progress: list[dict]
+    result: dict | None = None
+    error: str | None = None
+
+
 chat_jobs: dict[str, ChatJob] = {}
 training_jobs: dict[str, TrainingJob] = {}
+pretrained_jobs: dict[str, PretrainedJob] = {}
 
 
 @app.get("/health")
@@ -106,6 +127,39 @@ def health() -> dict[str, str]:
 @app.get("/models")
 def list_models() -> list[dict]:
     return chat_service.list_models()
+
+
+@app.get("/pretrained/models")
+def list_pretrained_models() -> list[dict]:
+    return pretrained_service.list_models()
+
+
+@app.post("/pretrained/jobs")
+def create_pretrained_job(request: PretrainedLoadRequest) -> dict:
+    job_id = str(uuid4())
+    now = _utc_now()
+    job = PretrainedJob(
+        job_id=job_id,
+        status="queued",
+        created_at=now,
+        updated_at=now,
+        request=request.model_dump(),
+        progress=[],
+    )
+    with pretrained_jobs_lock:
+        pretrained_jobs[job_id] = job
+
+    executor.submit(_run_pretrained_job, job_id, request)
+    return _job_to_dict(job)
+
+
+@app.get("/pretrained/jobs/{job_id}")
+def get_pretrained_job(job_id: str) -> dict:
+    with pretrained_jobs_lock:
+        job = pretrained_jobs.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Pretrained job not found")
+        return _job_to_dict(job)
 
 
 @app.post("/models/load")
@@ -164,6 +218,11 @@ def list_training_datasets() -> list[dict]:
     return training_service.list_datasets()
 
 
+@app.get("/training/experiments")
+def list_training_experiments() -> list[dict]:
+    return training_service.list_experiments()
+
+
 @app.post("/training/jobs")
 def create_training_job(request: TrainingRequest) -> dict:
     job_id = str(uuid4())
@@ -205,12 +264,25 @@ def _run_training_job(job_id: str, request: TrainingRequest) -> None:
     _update_training_job(job_id, status="running")
     try:
         result = training_service.train(
-            _to_training_request_data(request),
+            _to_training_request_data(request, job_id=job_id),
             progress_callback=lambda event: _append_training_progress(job_id, event),
         )
         _update_training_job(job_id, status="succeeded", result=result)
     except Exception as exc:
         _update_training_job(job_id, status="failed", error=str(exc))
+
+
+def _run_pretrained_job(job_id: str, request: PretrainedLoadRequest) -> None:
+    _update_pretrained_job(job_id, status="running")
+    try:
+        result = pretrained_service.download_and_load(
+            model_size=request.model_size,
+            model_id=request.model_id,
+            progress_callback=lambda event: _append_pretrained_progress(job_id, event),
+        )
+        _update_pretrained_job(job_id, status="succeeded", result=result)
+    except Exception as exc:
+        _update_pretrained_job(job_id, status="failed", error=str(exc))
 
 
 def _update_chat_job(
@@ -241,9 +313,30 @@ def _update_training_job(
         job.error = error
 
 
+def _update_pretrained_job(
+    job_id: str,
+    status: Literal["queued", "running", "succeeded", "failed"],
+    result: dict | None = None,
+    error: str | None = None,
+) -> None:
+    with pretrained_jobs_lock:
+        job = pretrained_jobs[job_id]
+        job.status = status
+        job.updated_at = _utc_now()
+        job.result = result
+        job.error = error
+
+
 def _append_training_progress(job_id: str, event: dict) -> None:
     with training_jobs_lock:
         job = training_jobs[job_id]
+        job.progress.append(event)
+        job.updated_at = _utc_now()
+
+
+def _append_pretrained_progress(job_id: str, event: dict) -> None:
+    with pretrained_jobs_lock:
+        job = pretrained_jobs[job_id]
         job.progress.append(event)
         job.updated_at = _utc_now()
 
@@ -263,7 +356,7 @@ def _to_request_data(request: ChatRequest) -> ChatRequestData:
     )
 
 
-def _to_training_request_data(request: TrainingRequest) -> TrainingRequestData:
+def _to_training_request_data(request: TrainingRequest, job_id: str | None = None) -> TrainingRequestData:
     return TrainingRequestData(
         dataset_id=request.dataset_id,
         base_model_id=request.base_model_id,
@@ -275,6 +368,7 @@ def _to_training_request_data(request: TrainingRequest) -> TrainingRequestData:
         eval_every=request.eval_every,
         sample_prompt=request.sample_prompt,
         load_when_complete=request.load_when_complete,
+        job_id=job_id,
     )
 
 

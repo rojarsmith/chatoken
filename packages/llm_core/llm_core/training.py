@@ -6,8 +6,8 @@ from typing import Callable
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from llm_core.generation import generate, prepare_chat_prompt
-from llm_core.tokenizer import ByteTokenizer
+from llm_core.generation import format_instruction_prompt, generate, prepare_chat_prompt
+from llm_core.tokenizer import Tokenizer
 
 
 @dataclass(frozen=True)
@@ -19,19 +19,20 @@ class TrainingConfig:
     learning_rate: float = 3e-3
     eval_every: int = 10
     sample_prompt: str = "Every effort moves you"
+    prompt_style: str = "chat"
     sample_tokens: int = 24
     seed: int = 123
 
 
-class ByteTokenDataset(Dataset):
-    def __init__(self, text: str, tokenizer: ByteTokenizer, block_size: int, stride: int = 1) -> None:
+class TokenDataset(Dataset):
+    def __init__(self, text: str, tokenizer: Tokenizer, block_size: int, stride: int = 1) -> None:
         if block_size < 2:
             raise ValueError("block_size must be at least 2")
         token_ids = tokenizer.encode(text)
         if len(token_ids) <= block_size:
             raise ValueError(
                 f"Training text is too short for block_size={block_size}. "
-                f"Need more than {block_size} byte tokens."
+                f"Need more than {block_size} tokens."
             )
 
         self.input_ids: list[torch.Tensor] = []
@@ -49,10 +50,38 @@ class ByteTokenDataset(Dataset):
         return self.input_ids[index], self.target_ids[index]
 
 
+class InstructionDataset(Dataset):
+    def __init__(
+        self,
+        entries: list[dict],
+        tokenizer: Tokenizer,
+        max_length: int,
+    ) -> None:
+        self.encoded_texts: list[list[int]] = []
+        for entry in entries:
+            input_text = entry.get("input", "")
+            prompt = format_instruction_prompt(entry["instruction"], input_text)
+            full_text = f"{prompt}\n\n### Response:\n{entry['output']}"
+            token_ids = tokenizer.encode(full_text)
+            if len(token_ids) > max_length:
+                token_ids = token_ids[:max_length]
+            if len(token_ids) >= 2:
+                self.encoded_texts.append(token_ids)
+
+        if not self.encoded_texts:
+            raise ValueError("Instruction dataset has no examples with at least 2 tokens.")
+
+    def __len__(self) -> int:
+        return len(self.encoded_texts)
+
+    def __getitem__(self, index: int) -> list[int]:
+        return self.encoded_texts[index]
+
+
 def train_tiny_language_model(
     *,
     model: torch.nn.Module,
-    tokenizer: ByteTokenizer,
+    tokenizer: Tokenizer,
     text: str,
     device: torch.device,
     config: TrainingConfig,
@@ -62,7 +91,7 @@ def train_tiny_language_model(
     model.to(device)
     model.train()
 
-    dataset = ByteTokenDataset(
+    dataset = TokenDataset(
         text=text,
         tokenizer=tokenizer,
         block_size=config.block_size,
@@ -74,7 +103,7 @@ def train_tiny_language_model(
         dataset,
         batch_size=config.batch_size,
         shuffle=True,
-        drop_last=True,
+        drop_last=len(dataset) >= config.batch_size,
         generator=generator,
     )
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
@@ -122,6 +151,7 @@ def train_tiny_language_model(
         device=device,
         context_size=model.pos_emb.num_embeddings,
         max_new_tokens=config.sample_tokens,
+        prompt_style=config.prompt_style,
     )
     summary = {
         "max_steps": config.max_steps,
@@ -132,22 +162,116 @@ def train_tiny_language_model(
         "losses": losses,
         "final_loss": losses[-1]["loss"] if losses else None,
         "sample_prompt": config.sample_prompt,
+        "prompt_style": config.prompt_style,
         "sample_text": sample_text,
         "dataset_tokens": len(tokenizer.encode(text)),
     }
     return summary
 
 
+def train_instruction_language_model(
+    *,
+    model: torch.nn.Module,
+    tokenizer: Tokenizer,
+    entries: list[dict],
+    device: torch.device,
+    config: TrainingConfig,
+    progress_callback: Callable[[dict], None] | None = None,
+) -> dict:
+    torch.manual_seed(config.seed)
+    model.to(device)
+    model.train()
+
+    dataset = InstructionDataset(
+        entries=entries,
+        tokenizer=tokenizer,
+        max_length=config.block_size,
+    )
+    generator = torch.Generator()
+    generator.manual_seed(config.seed)
+    loader = DataLoader(
+        dataset,
+        batch_size=config.batch_size,
+        shuffle=True,
+        drop_last=len(dataset) >= config.batch_size,
+        generator=generator,
+        collate_fn=lambda batch: _collate_instruction_batch(
+            batch,
+            pad_token_id=tokenizer.eos_id,
+            device=device,
+        ),
+    )
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=0.1)
+
+    losses: list[dict] = []
+    tokens_seen = 0
+    step = 0
+
+    while step < config.max_steps:
+        for input_batch, target_batch in loader:
+            optimizer.zero_grad(set_to_none=True)
+            logits = model(input_batch)
+            loss = torch.nn.functional.cross_entropy(
+                logits.flatten(0, 1),
+                target_batch.flatten(),
+                ignore_index=-100,
+            )
+            loss.backward()
+            optimizer.step()
+
+            step += 1
+            tokens_seen += int((target_batch != -100).sum().item())
+
+            if step == 1 or step % config.eval_every == 0 or step == config.max_steps:
+                event = {
+                    "step": step,
+                    "max_steps": config.max_steps,
+                    "loss": round(float(loss.item()), 6),
+                    "tokens_seen": tokens_seen,
+                }
+                losses.append(event)
+                if progress_callback is not None:
+                    progress_callback(event)
+
+            if step >= config.max_steps:
+                break
+
+    model.eval()
+    sample_text = generate_sample(
+        model=model,
+        tokenizer=tokenizer,
+        prompt=config.sample_prompt,
+        device=device,
+        context_size=model.pos_emb.num_embeddings,
+        max_new_tokens=config.sample_tokens,
+        prompt_style=config.prompt_style,
+    )
+    return {
+        "max_steps": config.max_steps,
+        "batch_size": config.batch_size,
+        "block_size": config.block_size,
+        "learning_rate": config.learning_rate,
+        "tokens_seen": tokens_seen,
+        "losses": losses,
+        "final_loss": losses[-1]["loss"] if losses else None,
+        "sample_prompt": config.sample_prompt,
+        "prompt_style": config.prompt_style,
+        "sample_text": sample_text,
+        "dataset_tokens": sum(len(item) for item in dataset.encoded_texts),
+    }
+
+
 def generate_sample(
     *,
     model: torch.nn.Module,
-    tokenizer: ByteTokenizer,
+    tokenizer: Tokenizer,
     prompt: str,
     device: torch.device,
     context_size: int,
     max_new_tokens: int,
+    prompt_style: str = "chat",
 ) -> str:
-    chat_prompt = prepare_chat_prompt(prompt)
+    chat_prompt = prepare_chat_prompt(prompt, prompt_style)
     input_ids = tokenizer.encode(chat_prompt)
     idx = torch.tensor(input_ids, dtype=torch.long, device=device).unsqueeze(0)
     output = generate(
@@ -162,3 +286,28 @@ def generate_sample(
     output_ids = output.squeeze(0).tolist()
     generated_ids = output_ids[len(input_ids) :]
     return tokenizer.decode(generated_ids)
+
+
+def _collate_instruction_batch(
+    batch: list[list[int]],
+    *,
+    pad_token_id: int,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    batch_max_length = max(len(item) + 1 for item in batch)
+    inputs: list[torch.Tensor] = []
+    targets: list[torch.Tensor] = []
+
+    for item in batch:
+        padded = item + [pad_token_id]
+        padded += [pad_token_id] * (batch_max_length - len(padded))
+        input_ids = torch.tensor(padded[:-1], dtype=torch.long)
+        target_ids = torch.tensor(padded[1:], dtype=torch.long)
+        mask = target_ids == pad_token_id
+        indices = torch.nonzero(mask, as_tuple=False).flatten()
+        if indices.numel() > 1:
+            target_ids[indices[1:]] = -100
+        inputs.append(input_ids)
+        targets.append(target_ids)
+
+    return torch.stack(inputs).to(device), torch.stack(targets).to(device)

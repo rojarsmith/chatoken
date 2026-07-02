@@ -345,6 +345,76 @@ button:focus-visible {
   gap: 14px;
 }
 
+.dataset-ladder {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.dataset-card {
+  display: grid;
+  gap: 10px;
+  min-height: 148px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--text);
+  text-align: left;
+  background: #fbfcfe;
+}
+
+.dataset-card:hover,
+.dataset-card.active {
+  border-color: var(--blue);
+}
+
+.dataset-card.active {
+  box-shadow: inset 0 0 0 1px var(--blue);
+}
+
+.dataset-card-heading,
+.experiment-title,
+.experiment-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dataset-card-heading {
+  flex-direction: column;
+}
+
+.dataset-card p,
+.dataset-summary p,
+.experiment-row p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.dataset-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.dataset-meta span,
+.tier-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--muted);
+  padding: 0 8px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .field.wide,
 .toggle-row.wide {
   grid-column: 1 / -1;
@@ -378,6 +448,41 @@ button:focus-visible {
   font-weight: 700;
 }
 
+.dataset-summary {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfe;
+}
+
+.prompt-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.prompt-pair div {
+  display: grid;
+  gap: 4px;
+  border-radius: 8px;
+  background: var(--surface-alt);
+  padding: 10px;
+}
+
+.prompt-pair span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.prompt-pair strong {
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+
 .output-box {
   min-width: 0;
   margin-top: 16px;
@@ -396,6 +501,31 @@ button:focus-visible {
   overflow: auto;
   max-height: 280px;
   margin: 12px 0 0;
+  color: #213047;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family:
+    "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  line-height: 1.55;
+}
+
+.sample-block {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.sample-block h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.sample-block pre {
+  overflow: auto;
+  max-height: 180px;
+  margin: 0;
   color: #213047;
   white-space: pre-wrap;
   word-break: break-word;
@@ -424,7 +554,8 @@ button:focus-visible {
 }
 
 .compare-controls,
-.comparison-grid {
+.comparison-grid,
+.experiment-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
@@ -484,12 +615,15 @@ button:focus-visible {
 }
 
 .checkpoint-list,
+.experiment-list,
 .stack {
   display: grid;
   gap: 10px;
 }
 
 .checkpoint-row,
+.experiment-row,
+.experiment-card,
 .model-row,
 .data-row,
 .empty-state {
@@ -506,22 +640,73 @@ button:focus-visible {
   padding: 14px;
 }
 
-.checkpoint-row p {
+.checkpoint-row p,
+.experiment-row p {
   overflow-wrap: anywhere;
   margin: 6px 0 10px;
   font-size: 0.86rem;
+}
+
+.experiment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+}
+
+.experiment-card {
+  min-width: 0;
+  padding: 14px;
+}
+
+.experiment-card-heading {
+  margin-bottom: 14px;
+}
+
+.experiment-card-heading h3 {
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metric-cell {
+  display: grid;
+  gap: 4px;
+  border-radius: 8px;
+  background: var(--surface-alt);
+  padding: 10px;
+}
+
+.metric-cell span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.metric-cell strong {
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
 }
 
 .model-row {
   padding: 12px;
 }
 
-.model-row div:first-child {
+.model-row div:first-child,
+.data-row div:first-child {
   display: grid;
   gap: 4px;
 }
 
-.model-row strong {
+.model-row strong,
+.data-row strong {
   overflow-wrap: anywhere;
 }
 
@@ -582,16 +767,21 @@ button:focus-visible {
   }
 
   .connection-bar,
+  .dataset-ladder,
   .form-grid,
   .compare-controls,
   .comparison-grid,
+  .experiment-controls,
+  .experiment-row,
+  .metric-grid,
+  .prompt-pair,
   .checkpoint-row {
     grid-template-columns: 1fr;
   }
 
   .tabs {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
   }
 

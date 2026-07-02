@@ -2,20 +2,23 @@
 
 [English](web-console.md) | [繁體中文](web-console.zh-TW.md)
 
-This document explains the first Web UI milestone for LLM ABC.
+This document explains the Web UI learning console for LLM ABC.
 
-The console connects a small Next.js app to the existing FastAPI backend and makes the learning loop visible in a browser:
+The console connects a small Next.js app to the FastAPI backend and keeps three learning paths separate:
 
 ```text
-chat with random model -> train tiny model -> watch loss -> load checkpoint -> compare outputs
+tiny model -> dataset ladder -> checkpoints
+the-verdict -> raw text continuation training
+GPT-2 -> instruction prompt -> optional instruction SFT
 ```
 
 ## What Was Added
 
 - `apps/web`: a minimal Next.js learning console.
 - Chat view: send a prompt to a selected model.
-- Compare view: run the same prompt against two models.
-- Training view: start an asynchronous training job and watch progress.
+- Pretrained view: download and load GPT-2 pretrained weights.
+- Training view: choose a dataset objective and base model, then start an asynchronous training job.
+- Experiments view: compare saved training runs across objective, loss, and before/after output.
 - Checkpoints view: list saved full checkpoints and load one as a chat model.
 - API CORS support for local browser development.
 
@@ -43,36 +46,22 @@ Then open:
 http://127.0.0.1:3000
 ```
 
-The UI uses this API URL by default:
-
-```text
-http://127.0.0.1:8000
-```
-
-To override it for the current Command Prompt before starting the web app:
-
-```cmd
-set NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
-npm run dev
-```
-
 ## Learning Flow
 
-1. Open the Chat tab.
-2. Send `Every effort moves you` to `random-tiny-byte`.
-3. Open the Training tab.
-4. Start a training job with `every-effort`, `80` steps, and `trained-tiny-byte`.
-5. Watch loss and tokens update while the job runs.
-6. Return to Chat after the job succeeds.
-7. Compare `random-tiny-byte` and `trained-tiny-byte` with the same prompt.
+1. Open Chat and send `Every effort moves you` to `random-tiny-byte`.
+2. Open Training and run `every-effort`, then compare before/after.
+3. Select `the-verdict`; the UI should suggest `random-tiny-byte` and `trained-verdict-byte`.
+4. Run the The Verdict job to observe raw text continuation on a larger dataset.
+5. Open Pretrained and load `GPT-2 small`.
+6. Return to Chat and ask an instruction-style request such as `Explain what a model checkpoint is in one sentence.`
+7. For instruction fine-tuning, select `instruction-following`; the UI should suggest `gpt2-124M` and `gpt2-instruct-finetuned`.
+8. Open Experiments to compare raw pretrained GPT-2 and instruction-tuned GPT-2.
 
-## Why This Stage Matters
+## Why This Separation Matters
 
-The CLI and API already prove that training works. The Web UI turns the same backend into a learning surface:
+The Verdict teaches the model to continue raw text. It does not teach GPT-2 to answer user requests.
 
-- model state is visible,
-- training progress is visible,
-- checkpoints are visible,
-- before/after behavior is visible.
+GPT-2 question/request behavior uses the Chapter 7 instruction prompt format. Better instruction following comes from the `instruction-following` SFT dataset, not from The Verdict.
 
-This makes the next stages easier: larger datasets, downloaded pretrained models, and fine-tuning comparisons can reuse the same UI structure.
+The dataset-size stage is available in [Dataset ladder and training experiments](dataset-ladder-experiments.md).
+GPT-2 loading and instruction prompts are explained in [GPT-2 Pretrained and Instruction Prompts](gpt2-pretrained.md).

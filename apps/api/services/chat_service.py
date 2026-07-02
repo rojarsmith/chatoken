@@ -10,7 +10,7 @@ from llm_core.checkpoints import find_checkpoint, list_checkpoints, load_checkpo
 from llm_core.configs import MODEL_CONFIGS, ModelConfig
 from llm_core.generation import generate, prepare_chat_prompt
 from llm_core.model import GPTModel, count_parameters
-from llm_core.tokenizer import ByteTokenizer
+from llm_core.tokenizer import Tokenizer, tokenizer_for_name
 
 
 @dataclass(frozen=True)
@@ -27,9 +27,10 @@ class ChatRequestData:
 class LoadedModel:
     model_id: str
     config: ModelConfig
-    tokenizer: ByteTokenizer
+    tokenizer: Tokenizer
     model: GPTModel
     device: torch.device
+    state: str = "loaded-model"
 
 
 class ChatService:
@@ -46,6 +47,7 @@ class ChatService:
                 "tokenizer": cfg.tokenizer,
                 "context_length": cfg.context_length,
                 "parameters": count_parameters(GPTModel(cfg.to_dict())),
+                "prompt_style": cfg.prompt_style,
                 "state": "loaded-random" if model_id in self._models else "random-untrained",
             }
             for model_id, cfg in MODEL_CONFIGS.items()
@@ -57,7 +59,8 @@ class ChatService:
                 "tokenizer": loaded.config.tokenizer,
                 "context_length": loaded.config.context_length,
                 "parameters": count_parameters(loaded.model),
-                "state": "loaded-checkpoint",
+                "prompt_style": loaded.config.prompt_style,
+                "state": loaded.state,
             }
             for model_id, loaded in self._models.items()
             if model_id not in MODEL_CONFIGS
@@ -80,14 +83,13 @@ class ChatService:
         model.load_state_dict(payload["state_dict"])
         model.eval()
 
-        self._models[loaded_model_id] = LoadedModel(
+        self.register_model(
             model_id=loaded_model_id,
             config=model_config,
-            tokenizer=ByteTokenizer(),
             model=model,
             device=device,
+            state="loaded-checkpoint",
         )
-        self._locks.setdefault(loaded_model_id, Lock())
         return {
             "model_id": loaded_model_id,
             "checkpoint_id": checkpoint_id,
@@ -95,9 +97,56 @@ class ChatService:
             "state": "loaded-checkpoint",
         }
 
+    def register_model(
+        self,
+        *,
+        model_id: str,
+        config: ModelConfig,
+        model: GPTModel,
+        device: torch.device | None = None,
+        state: str = "loaded-model",
+    ) -> dict:
+        target_device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(target_device)
+        model.eval()
+        self._models[model_id] = LoadedModel(
+            model_id=model_id,
+            config=config,
+            tokenizer=tokenizer_for_name(config.tokenizer),
+            model=model,
+            device=target_device,
+            state=state,
+        )
+        self._locks.setdefault(model_id, Lock())
+        return {
+            "model_id": model_id,
+            "device": str(target_device),
+            "state": state,
+        }
+
+    def clone_model_for_training(self, model_id: str) -> LoadedModel:
+        loaded = self._get_model(model_id)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = GPTModel(loaded.config.to_dict()).to(device)
+        with self._locks[model_id]:
+            state_dict = {
+                key: value.detach().cpu().clone()
+                for key, value in loaded.model.state_dict().items()
+            }
+        model.load_state_dict(state_dict)
+        model.eval()
+        return LoadedModel(
+            model_id=model_id,
+            config=loaded.config,
+            tokenizer=tokenizer_for_name(loaded.config.tokenizer),
+            model=model,
+            device=device,
+            state=loaded.state,
+        )
+
     def generate_reply(self, request: ChatRequestData) -> dict:
         loaded = self._get_model(request.model_id)
-        prompt = prepare_chat_prompt(request.message)
+        prompt = prepare_chat_prompt(request.message, loaded.config.prompt_style)
         input_ids = loaded.tokenizer.encode(prompt)
         if not input_ids:
             input_ids = [loaded.tokenizer.eos_id]
@@ -117,7 +166,10 @@ class ChatService:
 
         output_ids = output.squeeze(0).tolist()
         generated_ids = output_ids[len(input_ids) :]
-        reply = loaded.tokenizer.decode(generated_ids).strip()
+        reply = _clean_reply(
+            loaded.tokenizer.decode(generated_ids),
+            prompt_style=loaded.config.prompt_style,
+        )
         full_text = loaded.tokenizer.decode(output_ids)
 
         return {
@@ -142,11 +194,8 @@ class ChatService:
         return self._models[model_id]
 
     def _load_random_model(self, model_id: str, config: ModelConfig) -> LoadedModel:
-        if config.tokenizer != "byte":
-            raise ValueError(f"Unsupported tokenizer for this MVP: {config.tokenizer}")
-
         torch.manual_seed(config.seed)
-        tokenizer = ByteTokenizer()
+        tokenizer = tokenizer_for_name(config.tokenizer)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = GPTModel(config.to_dict()).to(device)
         model.eval()
@@ -156,8 +205,16 @@ class ChatService:
             tokenizer=tokenizer,
             model=model,
             device=device,
+            state="loaded-random",
         )
 
 
 def _project_root() -> Path:
     return Path(__file__).resolve().parents[3]
+
+
+def _clean_reply(text: str, *, prompt_style: str) -> str:
+    reply = text.strip()
+    if prompt_style == "instruction":
+        reply = reply.replace("### Response:", "", 1).strip()
+    return reply

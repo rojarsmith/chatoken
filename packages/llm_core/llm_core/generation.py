@@ -3,8 +3,23 @@ from __future__ import annotations
 import torch
 
 
-def prepare_chat_prompt(message: str) -> str:
+def prepare_chat_prompt(message: str, prompt_style: str = "chat") -> str:
+    if prompt_style == "raw":
+        return message
+    if prompt_style == "instruction":
+        return format_instruction_prompt(message) + "\n\n### Response:"
     return f"User: {message}\nAssistant:"
+
+
+def format_instruction_prompt(instruction: str, input_text: str = "") -> str:
+    prompt = (
+        "Below is an instruction that describes a task. "
+        "Write a response that appropriately completes the request."
+        f"\n\n### Instruction:\n{instruction}"
+    )
+    if input_text:
+        prompt += f"\n\n### Input:\n{input_text}"
+    return prompt
 
 
 def generate(

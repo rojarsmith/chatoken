@@ -2,22 +2,25 @@
 
 [English](web-console.md) | [繁體中文](web-console.zh-TW.md)
 
-這份文件說明 LLM ABC 的第一個 Web UI 里程碑。
+這份文件說明 LLM ABC 的 Web UI learning console。
 
-這個控制台會把小型 Next.js app 接到既有 FastAPI 後端，讓學習閉環可以在瀏覽器中操作：
+這個 console 把小型 Next.js app 接到 FastAPI backend，並把三條學習路徑分清楚：
 
 ```text
-用隨機模型聊天 -> 訓練 tiny model -> 觀察 loss -> 載入 checkpoint -> 比較輸出
+tiny model -> dataset ladder -> checkpoints
+the-verdict -> raw text continuation training
+GPT-2 -> instruction prompt -> optional instruction SFT
 ```
 
 ## 新增內容
 
-- `apps/web`：最小 Next.js 學習控制台。
-- Chat view：把 prompt 送到指定模型。
-- Compare view：用同一個 prompt 比較兩個模型。
-- Training view：建立非同步 training job 並觀察進度。
-- Checkpoints view：列出 full checkpoint，並載入成可聊天模型。
-- API CORS 支援本機瀏覽器開發。
+- `apps/web`：最小 Next.js learning console。
+- Chat view：送 prompt 給指定模型。
+- Pretrained view：下載並載入 GPT-2 pretrained weights。
+- Training view：選 dataset objective 與 base model，建立非同步 training job。
+- Experiments view：依 objective、loss、before/after output 比較訓練紀錄。
+- Checkpoints view：列出 full checkpoints，並載入成 chat model。
+- API CORS：支援本機瀏覽器開發。
 
 ## 啟動 API
 
@@ -37,42 +40,28 @@ npm install
 npm run dev
 ```
 
-然後開啟：
+然後打開：
 
 ```text
 http://127.0.0.1:3000
 ```
 
-UI 預設使用這個 API URL：
+## Learning Flow
 
-```text
-http://127.0.0.1:8000
-```
+1. 打開 Chat，送 `Every effort moves you` 給 `random-tiny-byte`。
+2. 打開 Training，跑 `every-effort`，比較 before/after。
+3. 選 `the-verdict`；UI 應該建議 `random-tiny-byte` 和 `trained-verdict-byte`。
+4. 跑 The Verdict job，觀察較大資料上的 raw text continuation。
+5. 打開 Pretrained，載入 `GPT-2 small`。
+6. 回到 Chat，問一個 instruction-style request，例如 `Explain what a model checkpoint is in one sentence.`
+7. 要做 instruction fine-tuning 時，選 `instruction-following`；UI 應該建議 `gpt2-124M` 和 `gpt2-instruct-finetuned`。
+8. 打開 Experiments，比較 raw pretrained GPT-2 和 instruction-tuned GPT-2。
 
-如果要在啟動前修改 API URL，可以在目前這個 Command Prompt 先設定：
+## 為什麼要分開
 
-```cmd
-set NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
-npm run dev
-```
+The Verdict 教模型續寫 raw text。它不是用來教 GPT-2 回答使用者要求。
 
-## 學習流程
+GPT-2 的 question/request 行為使用 Chapter 7 instruction prompt 格式。更好的 instruction following 來自 `instruction-following` SFT dataset，不是 The Verdict。
 
-1. 開啟 Chat tab。
-2. 用 `random-tiny-byte` 送出 `Every effort moves you`。
-3. 開啟 Training tab。
-4. 使用 `every-effort`、`80` steps、`trained-tiny-byte` 建立 training job。
-5. 觀察 loss 與 tokens 的變化。
-6. job 成功後回到 Chat。
-7. 用同一個 prompt 比較 `random-tiny-byte` 與 `trained-tiny-byte`。
-
-## 為何這階段重要
-
-CLI 與 API 已經證明訓練能跑。Web UI 會把同一個後端變成可操作的學習介面：
-
-- 模型狀態看得見。
-- 訓練進度看得見。
-- checkpoints 看得見。
-- 訓練前/後行為看得見。
-
-下一階段要加入更大資料集、下載 pretrained model、fine-tuning 比較時，可以沿用這個 UI 結構。
+資料規模階段請看 [資料規模階梯與訓練實驗記錄](dataset-ladder-experiments.zh-TW.md)。
+GPT-2 載入與 instruction prompt 請看 [GPT-2 Pretrained 與 Instruction Prompt](gpt2-pretrained.zh-TW.md)。

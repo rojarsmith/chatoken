@@ -10,6 +10,8 @@ build/
 dist/
 models/checkpoints/
 models/downloaded/
+models/experiments/
+data/external/
 *.pth
 *.pt
 *.safetensors
