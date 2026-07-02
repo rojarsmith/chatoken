@@ -13,6 +13,7 @@ import torch
 
 from apps.api.services.chat_service import ChatService
 from llm_core.checkpoints import save_checkpoint
+from llm_core.generation import format_instruction_prompt
 from llm_core.tokenizer import ByteTokenizer
 from llm_core.training import (
     TrainingConfig,
@@ -187,39 +188,14 @@ class TrainingService:
         }
 
     def list_datasets(self) -> list[dict]:
-        tokenizer = ByteTokenizer()
-        datasets = []
-        for spec in self._datasets.values():
-            text = spec.path.read_text(encoding="utf-8") if spec.path.exists() else ""
-            datasets.append(
-                {
-                    "dataset_id": spec.dataset_id,
-                    "tier": spec.tier,
-                    "label": spec.label,
-                    "description": spec.description,
-                    "path": str(spec.path),
-                    "exists": spec.path.exists(),
-                    "byte_tokens": len(tokenizer.encode(text)) if text else 0,
-                    "bytes": len(text.encode("utf-8")) if text else 0,
-                    "preview": _preview_text(text),
-                    "recommended_steps": spec.recommended_steps,
-                    "recommended_batch_size": spec.recommended_batch_size,
-                    "recommended_block_size": spec.recommended_block_size,
-                    "recommended_learning_rate": spec.recommended_learning_rate,
-                    "recommended_base_model_id": spec.recommended_base_model_id,
-                    "comparison_prompt": spec.comparison_prompt,
-                    "dataset_probe_prompt": spec.dataset_probe_prompt,
-                    "sample_prompt": spec.comparison_prompt,
-                    "output_model_id": spec.output_model_id,
-                    "training_objective": spec.training_objective,
-                    "prompt_style": spec.prompt_style,
-                    "learning_stage": spec.learning_stage,
-                    "learning_stage_label": spec.learning_stage_label,
-                    "learning_goal": spec.learning_goal,
-                    "source_url": spec.source_url,
-                }
-            )
-        return datasets
+        return [self._dataset_metadata(spec) for spec in self._datasets.values()]
+
+    def prepare_dataset(self, dataset_id: str) -> dict:
+        dataset = self._datasets.get(dataset_id)
+        if dataset is None:
+            raise ValueError(f"Unknown dataset_id: {dataset_id}")
+        self._ensure_dataset(dataset)
+        return self._dataset_metadata(dataset)
 
     def list_experiments(self) -> list[dict]:
         if not self._experiment_log.exists():
@@ -260,13 +236,14 @@ class TrainingService:
                 f"{request.base_model_id} context_length={model_config.context_length}."
             )
 
+        sample_tokens = 80 if dataset.prompt_style == "instruction" else 24
         before_sample = generate_sample(
             model=model,
             tokenizer=tokenizer,
             prompt=request.sample_prompt,
             device=device,
             context_size=model_config.context_length,
-            max_new_tokens=24,
+            max_new_tokens=sample_tokens,
             prompt_style=dataset.prompt_style,
         )
         training_config = TrainingConfig(
@@ -277,6 +254,7 @@ class TrainingService:
             eval_every=request.eval_every,
             sample_prompt=request.sample_prompt,
             prompt_style=dataset.prompt_style,
+            sample_tokens=sample_tokens,
             seed=model_config.seed,
         )
         if dataset.training_objective == "instruction-sft":
@@ -309,6 +287,11 @@ class TrainingService:
         training_summary["learning_goal"] = dataset.learning_goal
         training_summary["comparison_prompt"] = request.sample_prompt
         training_summary["dataset_probe_prompt"] = dataset.dataset_probe_prompt
+        training_summary["device"] = str(device)
+        training_summary["cuda_available"] = torch.cuda.is_available()
+        training_summary["device_name"] = (
+            torch.cuda.get_device_name(0) if torch.cuda.is_available() else None
+        )
 
         checkpoint = save_checkpoint(
             checkpoint_dir=self._checkpoint_dir,
@@ -353,6 +336,39 @@ class TrainingService:
         response.raise_for_status()
         dataset.path.write_text(response.text, encoding="utf-8")
 
+    def _dataset_metadata(self, spec: DatasetSpec) -> dict:
+        tokenizer = ByteTokenizer()
+        text = spec.path.read_text(encoding="utf-8") if spec.path.exists() else ""
+        metadata = {
+            "dataset_id": spec.dataset_id,
+            "tier": spec.tier,
+            "label": spec.label,
+            "description": spec.description,
+            "path": str(spec.path),
+            "exists": spec.path.exists(),
+            "byte_tokens": len(tokenizer.encode(text)) if text else 0,
+            "bytes": len(text.encode("utf-8")) if text else 0,
+            "preview": _preview_text(text),
+            "recommended_steps": spec.recommended_steps,
+            "recommended_batch_size": spec.recommended_batch_size,
+            "recommended_block_size": spec.recommended_block_size,
+            "recommended_learning_rate": spec.recommended_learning_rate,
+            "recommended_base_model_id": spec.recommended_base_model_id,
+            "comparison_prompt": spec.comparison_prompt,
+            "dataset_probe_prompt": spec.dataset_probe_prompt,
+            "sample_prompt": spec.comparison_prompt,
+            "output_model_id": spec.output_model_id,
+            "training_objective": spec.training_objective,
+            "prompt_style": spec.prompt_style,
+            "learning_stage": spec.learning_stage,
+            "learning_stage_label": spec.learning_stage_label,
+            "learning_goal": spec.learning_goal,
+            "source_url": spec.source_url,
+        }
+        if spec.training_objective == "instruction-sft":
+            metadata.update(_instruction_dataset_metadata(text))
+        return metadata
+
     def _record_experiment(
         self,
         *,
@@ -384,6 +400,9 @@ class TrainingService:
             "batch_size": training_summary.get("batch_size"),
             "block_size": training_summary.get("block_size"),
             "learning_rate": training_summary.get("learning_rate"),
+            "device": training_summary.get("device"),
+            "cuda_available": training_summary.get("cuda_available"),
+            "device_name": training_summary.get("device_name"),
             "tokens_seen": training_summary.get("tokens_seen"),
             "final_loss": training_summary.get("final_loss"),
             "losses": training_summary.get("losses", []),
@@ -407,3 +426,69 @@ def _preview_text(text: str, limit: int = 220) -> str:
     if len(compact) <= limit:
         return compact
     return compact[: limit - 3] + "..."
+
+
+def _instruction_dataset_metadata(text: str) -> dict:
+    template = (
+        "Below is an instruction that describes a task. "
+        "Write a response that appropriately completes the request."
+        "\n\n### Instruction:\n{instruction}"
+        "\n\n### Input:\n{input}"
+        "\n\n### Response:\n{output}"
+    )
+    if not text:
+        return {
+            "example_count": 0,
+            "instruction_template": template,
+            "instruction_example": None,
+            "formatted_prompt_preview": "",
+            "target_response_preview": "",
+        }
+
+    try:
+        entries = json.loads(text)
+    except json.JSONDecodeError:
+        return {
+            "example_count": 0,
+            "instruction_template": template,
+            "instruction_example": None,
+            "formatted_prompt_preview": "",
+            "target_response_preview": "",
+        }
+
+    example = _first_instruction_example(entries)
+    if example is None:
+        return {
+            "example_count": len(entries) if isinstance(entries, list) else 0,
+            "instruction_template": template,
+            "instruction_example": None,
+            "formatted_prompt_preview": "",
+            "target_response_preview": "",
+        }
+
+    input_text = example.get("input", "")
+    formatted_prompt = format_instruction_prompt(example["instruction"], input_text)
+    return {
+        "example_count": len(entries),
+        "instruction_template": template,
+        "instruction_example": {
+            "instruction": example["instruction"],
+            "input": input_text,
+            "output": example["output"],
+        },
+        "formatted_prompt_preview": formatted_prompt + "\n\n### Response:",
+        "target_response_preview": example["output"],
+    }
+
+
+def _first_instruction_example(entries: object) -> dict | None:
+    if not isinstance(entries, list):
+        return None
+    for entry in entries:
+        if (
+            isinstance(entry, dict)
+            and isinstance(entry.get("instruction"), str)
+            and isinstance(entry.get("output"), str)
+        ):
+            return entry
+    return None

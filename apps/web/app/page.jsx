@@ -124,6 +124,7 @@ export default function Home() {
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_API_BASE_URL);
   const [apiStatus, setApiStatus] = useState("checking");
   const [statusMessage, setStatusMessage] = useState("Checking API");
+  const [runtimeInfo, setRuntimeInfo] = useState(null);
   const [activeTab, setActiveTab] = useState("chat");
   const [models, setModels] = useState([]);
   const [datasets, setDatasets] = useState([]);
@@ -157,6 +158,8 @@ export default function Home() {
   const [trainingJob, setTrainingJob] = useState(null);
   const [trainingError, setTrainingError] = useState("");
   const [isStartingTraining, setIsStartingTraining] = useState(false);
+  const [datasetPrepareError, setDatasetPrepareError] = useState("");
+  const [isPreparingDataset, setIsPreparingDataset] = useState(false);
   const [pretrainedJob, setPretrainedJob] = useState(null);
   const [pretrainedError, setPretrainedError] = useState("");
   const [isStartingPretrained, setIsStartingPretrained] = useState(false);
@@ -361,11 +364,13 @@ export default function Home() {
     setStatusMessage("Checking API");
 
     try {
-      await requestJson("/health");
+      const health = await requestJson("/health");
+      setRuntimeInfo(health);
       setApiStatus("online");
       setStatusMessage("API online");
     } catch (error) {
       setApiStatus("offline");
+      setRuntimeInfo(null);
       setStatusMessage(error.message);
       setIsRefreshing(false);
       return;
@@ -500,11 +505,13 @@ export default function Home() {
     }
   }
 
-  async function startPretrainedDownload(model) {
+  async function startPretrainedDownload(model, nextTab = "pretrained") {
     setIsStartingPretrained(true);
     setPretrainedError("");
     setPretrainedJob(null);
-    setActiveTab("pretrained");
+    if (nextTab) {
+      setActiveTab(nextTab);
+    }
 
     try {
       const job = await requestJson("/pretrained/jobs", {
@@ -519,6 +526,26 @@ export default function Home() {
       setPretrainedError(error.message);
     } finally {
       setIsStartingPretrained(false);
+    }
+  }
+
+  async function prepareDataset(dataset) {
+    if (!dataset?.dataset_id) {
+      return;
+    }
+    setIsPreparingDataset(true);
+    setDatasetPrepareError("");
+
+    try {
+      const preparedDataset = await requestJson(`/training/datasets/${dataset.dataset_id}/prepare`, {
+        method: "POST"
+      });
+      await refreshAll();
+      applyDataset(preparedDataset);
+    } catch (error) {
+      setDatasetPrepareError(error.message);
+    } finally {
+      setIsPreparingDataset(false);
     }
   }
 
@@ -641,6 +668,7 @@ export default function Home() {
             )}
             {statusMessage}
           </span>
+          <RuntimePill apiStatus={apiStatus} runtimeInfo={runtimeInfo} />
           <button
             className="icon-button"
             type="button"
@@ -714,16 +742,23 @@ export default function Home() {
               batchSize={batchSize}
               baseModelId={baseModelId}
               blockSize={blockSize}
+              datasetPrepareError={datasetPrepareError}
               datasetId={datasetId}
               datasets={datasetsByStage[activeTab] || []}
               evalEvery={evalEvery}
+              isPreparingDataset={isPreparingDataset}
               isStartingTraining={isStartingTraining}
+              isStartingPretrained={isStartingPretrained}
               lastProgress={lastProgress}
               learningRate={learningRate}
               loadWhenComplete={loadWhenComplete}
               modelOptions={modelOptions}
               outputModelId={outputModelId}
+              prepareDataset={prepareDataset}
+              pretrainedJob={pretrainedJob}
+              pretrainedModels={pretrainedModels}
               progressPercent={progressPercent}
+              runtimeInfo={runtimeInfo}
               selectedDataset={selectedDataset}
               selectDataset={selectDataset}
               setEvalEvery={setEvalEvery}
@@ -735,6 +770,7 @@ export default function Home() {
               setOutputModelId={setOutputModelId}
               setTrainingSteps={setTrainingSteps}
               stage={LEARNING_STAGES[activeTab]}
+              startPretrainedDownload={startPretrainedDownload}
               startTraining={startTraining}
               trainingError={trainingError}
               trainingJob={trainingJob}
@@ -1091,16 +1127,23 @@ function TrainingView({
   batchSize,
   baseModelId,
   blockSize,
+  datasetPrepareError,
   datasetId,
   datasets,
   evalEvery,
+  isPreparingDataset,
   isStartingTraining,
+  isStartingPretrained,
   lastProgress,
   learningRate,
   loadWhenComplete,
   modelOptions,
   outputModelId,
+  prepareDataset,
+  pretrainedJob,
+  pretrainedModels,
   progressPercent,
+  runtimeInfo,
   selectedDataset,
   selectDataset,
   setBaseModelId,
@@ -1112,11 +1155,30 @@ function TrainingView({
   setOutputModelId,
   setTrainingSteps,
   stage,
+  startPretrainedDownload,
   startTraining,
   trainingError,
   trainingJob,
   trainingSteps
 }) {
+  const gpt2Small =
+    pretrainedModels.find((model) => model.model_size === "124M") ||
+    pretrainedModels.find((model) => model.model_id === "gpt2-124M") || {
+      model_size: "124M",
+      model_id: "gpt2-124M",
+      label: "GPT-2 small",
+      parameters: 124000000,
+      downloaded: false
+    };
+  const gpt2Loaded = modelOptions.some(
+    (model) => model.model_id === "gpt2-124M" && model.state !== "not-loaded"
+  );
+  const showInstructionLoop = stage.id === "instruction";
+  const beforeTitle =
+    stage.id === "instruction" ? "Before (raw GPT-2)" : "Before (base)";
+  const afterTitle =
+    stage.id === "instruction" ? "After (instruction SFT)" : "After";
+
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -1144,6 +1206,21 @@ function TrainingView({
         datasets={datasets}
         selectDataset={selectDataset}
       />
+
+      {showInstructionLoop && (
+        <InstructionLoopPanel
+          datasetPrepareError={datasetPrepareError}
+          gpt2Loaded={gpt2Loaded}
+          gpt2Small={gpt2Small}
+          isPreparingDataset={isPreparingDataset}
+          isStartingPretrained={isStartingPretrained}
+          prepareDataset={prepareDataset}
+          pretrainedJob={pretrainedJob}
+          runtimeInfo={runtimeInfo}
+          selectedDataset={selectedDataset}
+          startPretrainedDownload={startPretrainedDownload}
+        />
+      )}
 
       <div className="form-grid">
         <label className="field">
@@ -1294,6 +1371,9 @@ function TrainingView({
 
           <div className="metrics">
             <span>base {trainingJob.request?.base_model_id || "-"}</span>
+            <span>
+              device {trainingJob.result?.training_summary?.device || formatRuntimeLabel(runtimeInfo)}
+            </span>
             <span>step {lastProgress?.step || 0}</span>
             <span>loss {lastProgress?.loss ?? "-"}</span>
             <span>tokens {lastProgress?.tokens_seen || 0}</span>
@@ -1314,11 +1394,11 @@ function TrainingView({
           {trainingJob.result?.training_summary && (
             <div className="comparison-grid">
               <OutputColumn
-                title="Before (base)"
+                title={beforeTitle}
                 text={trainingJob.result.training_summary.before_sample}
               />
               <OutputColumn
-                title="After"
+                title={afterTitle}
                 text={trainingJob.result.training_summary.sample_text}
               />
             </div>
@@ -1326,6 +1406,142 @@ function TrainingView({
         </div>
       )}
     </section>
+  );
+}
+
+function InstructionLoopPanel({
+  datasetPrepareError,
+  gpt2Loaded,
+  gpt2Small,
+  isPreparingDataset,
+  isStartingPretrained,
+  prepareDataset,
+  pretrainedJob,
+  runtimeInfo,
+  selectedDataset,
+  startPretrainedDownload
+}) {
+  const latestPretrainedProgress = pretrainedJob?.progress?.at(-1);
+  const datasetReady = Boolean(selectedDataset?.exists);
+  const isCpuRuntime = runtimeInfo?.device === "cpu";
+
+  return (
+    <div className="instruction-loop">
+      <div className="loop-grid">
+        <div className="loop-step">
+          <span className={datasetReady ? "state good" : "state muted"}>
+            {datasetReady ? "ready" : "missing"}
+          </span>
+          <h3>Instruction data</h3>
+          <p>{selectedDataset?.example_count || 0} examples</p>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => prepareDataset(selectedDataset)}
+            disabled={isPreparingDataset || datasetReady}
+          >
+            {isPreparingDataset ? (
+              <LoaderCircle aria-hidden="true" className="spin" />
+            ) : (
+              <Database aria-hidden="true" />
+            )}
+            {datasetReady ? "Dataset ready" : "Download dataset"}
+          </button>
+        </div>
+
+        <div className="loop-step">
+          <span className={gpt2Loaded ? "state good" : "state muted"}>
+            {gpt2Loaded ? "loaded" : "not loaded"}
+          </span>
+          <h3>GPT-2 base</h3>
+          <p>{gpt2Small.label || "GPT-2 small"}</p>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => startPretrainedDownload(gpt2Small, null)}
+            disabled={isStartingPretrained || gpt2Loaded}
+          >
+            {isStartingPretrained ? (
+              <LoaderCircle aria-hidden="true" className="spin" />
+            ) : (
+              <Download aria-hidden="true" />
+            )}
+            {gpt2Loaded ? "Base loaded" : gpt2Small.downloaded ? "Load GPT-2" : "Download GPT-2"}
+          </button>
+          {latestPretrainedProgress?.message && (
+            <span className="loop-note">{latestPretrainedProgress.message}</span>
+          )}
+        </div>
+
+        <div className="loop-step">
+          <span className={runtimeInfo?.device === "cuda" ? "state good" : "state active-state"}>
+            {runtimeInfo?.device === "cuda" ? "gpu" : "cpu"}
+          </span>
+          <h3>Instruction SFT</h3>
+          <p>Run training, load the checkpoint, then compare before and after.</p>
+          <span className="loop-note">runtime {formatRuntimeLabel(runtimeInfo)}</span>
+        </div>
+      </div>
+
+      {datasetPrepareError && <div className="error-line">{datasetPrepareError}</div>}
+      {isCpuRuntime && (
+        <div className="warning-line">
+          CPU-only runtime: GPT-2 SFT is suitable only as a short smoke test here.
+          Use a CUDA PyTorch install for reasonable training time.
+        </div>
+      )}
+
+      <div className="instruction-preview">
+        <div className="template-box">
+          <h3>Prompt template</h3>
+          <pre>{selectedDataset?.instruction_template || ""}</pre>
+        </div>
+        <div className="template-box">
+          <h3>Dataset example</h3>
+          {selectedDataset?.instruction_example ? (
+            <>
+              <Metric
+                label="Instruction"
+                value={selectedDataset.instruction_example.instruction}
+              />
+              <Metric label="Input" value={selectedDataset.instruction_example.input || "-"} />
+              <Metric label="Target response" value={selectedDataset.target_response_preview} />
+            </>
+          ) : (
+            <p>No local instruction example yet.</p>
+          )}
+        </div>
+      </div>
+
+      {selectedDataset?.formatted_prompt_preview && (
+        <div className="template-box">
+          <h3>Formatted model input</h3>
+          <pre>{selectedDataset.formatted_prompt_preview}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RuntimePill({ apiStatus, runtimeInfo }) {
+  if (apiStatus !== "online" || !runtimeInfo) {
+    return (
+      <span className="status-pill runtime muted">
+        <Server aria-hidden="true" />
+        Runtime unknown
+      </span>
+    );
+  }
+
+  const isCuda = runtimeInfo.device === "cuda";
+  return (
+    <span
+      className={`status-pill runtime ${isCuda ? "online" : "warning"}`}
+      title={formatRuntimeTitle(runtimeInfo)}
+    >
+      <Server aria-hidden="true" />
+      {formatRuntimeLabel(runtimeInfo)}
+    </span>
   );
 }
 
@@ -1478,6 +1694,7 @@ function ExperimentsView({
                 <div className="metrics">
                   <span>{experiment.dataset_id}</span>
                   <span>{experiment.training_objective || "text"}</span>
+                  <span>device {experiment.device || "-"}</span>
                   <span>loss {formatMaybeNumber(experiment.final_loss)}</span>
                   <span>{experiment.tokens_seen || 0} tokens seen</span>
                   <span>{experiment.max_steps || 0} steps</span>
@@ -1539,6 +1756,7 @@ function ExperimentColumn({ experiment, loadExperimentModel, loadingExperimentId
         <Metric label="Dataset" value={experiment.dataset_id} />
         <Metric label="Objective" value={experiment.training_objective || "text"} />
         <Metric label="Final loss" value={formatMaybeNumber(experiment.final_loss)} />
+        <Metric label="Device" value={experiment.device || "-"} />
         <Metric label="Dataset tokens" value={experiment.dataset_tokens || 0} />
         <Metric label="Tokens seen" value={experiment.tokens_seen || 0} />
         <Metric label="Steps" value={experiment.max_steps || 0} />
@@ -1715,6 +1933,31 @@ function formatNumber(value) {
     return "-";
   }
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatRuntimeLabel(runtimeInfo) {
+  if (!runtimeInfo) {
+    return "Runtime unknown";
+  }
+  if (runtimeInfo.device === "cuda") {
+    return runtimeInfo.device_name || "CUDA GPU";
+  }
+  return "CPU only";
+}
+
+function formatRuntimeTitle(runtimeInfo) {
+  if (!runtimeInfo) {
+    return "";
+  }
+  const parts = [
+    `device: ${runtimeInfo.device || "unknown"}`,
+    `torch: ${runtimeInfo.torch_version || "unknown"}`
+  ];
+  if (runtimeInfo.cuda_available) {
+    parts.push(`cuda: ${runtimeInfo.cuda_version || "available"}`);
+    parts.push(`gpu: ${runtimeInfo.device_name || "unknown"}`);
+  }
+  return parts.join("\n");
 }
 
 function formatBytes(value) {

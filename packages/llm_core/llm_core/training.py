@@ -285,7 +285,19 @@ def generate_sample(
     )
     output_ids = output.squeeze(0).tolist()
     generated_ids = output_ids[len(input_ids) :]
-    return tokenizer.decode(generated_ids)
+    return _clean_generated_sample(tokenizer.decode(generated_ids), config_style=prompt_style)
+
+
+def _clean_generated_sample(text: str, *, config_style: str) -> str:
+    sample = text.strip()
+    if config_style != "instruction":
+        return sample
+
+    sample = sample.replace("### Response:", "", 1).strip()
+    for marker in ("\n\n### Instruction:", "\n\n### Input:", "\n\n###"):
+        if marker in sample:
+            sample = sample.split(marker, 1)[0].strip()
+    return sample
 
 
 def _collate_instruction_batch(

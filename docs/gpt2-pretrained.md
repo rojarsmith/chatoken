@@ -61,6 +61,16 @@ curl -s -X POST http://127.0.0.1:8000/chat ^
 
 Raw pretrained GPT-2 is a completion model, not an instruction-tuned assistant. The instruction template gives it the same input shape used before Chapter 7 fine-tuning, but good instruction following comes from the instruction SFT dataset.
 
+## Check Runtime Device
+
+Before running GPT-2 SFT, check whether the API sees CUDA:
+
+```cmd
+curl -s http://127.0.0.1:8000/health
+```
+
+If the response says `"device":"cpu"`, keep GPT-2 SFT to a very short smoke test. For a practical run, install a CUDA-enabled PyTorch build in `.venv` and restart the API. See [GPU Runtime Setup for PyTorch](gpu-runtime.md).
+
 ## The Verdict Is Raw Text Training
 
 Use The Verdict with the tiny from-scratch model:
@@ -76,6 +86,14 @@ This teaches raw next-token prediction on a larger text file. The expected behav
 ## Instruction Fine-Tuning
 
 Use `instruction-following` only after loading GPT-2:
+
+Prepare the local instruction dataset first:
+
+```cmd
+curl -s -X POST http://127.0.0.1:8000/training/datasets/instruction-following/prepare
+```
+
+Then start the SFT job:
 
 ```cmd
 curl -s -X POST http://127.0.0.1:8000/training/jobs ^

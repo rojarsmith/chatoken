@@ -19,7 +19,7 @@ GPT-2 -> instruction prompt -> optional instruction SFT
 - From Scratch view: train the tiny model on small chat-shaped datasets.
 - Raw Text view: train on The Verdict as larger continuation text.
 - GPT-2 view: download and load GPT-2 pretrained weights.
-- Instruction view: fine-tune GPT-2 on instruction/response data.
+- Instruction view: prepare instruction data, load GPT-2, then fine-tune on instruction/response examples.
 - Experiments view: compare saved training runs across objective, loss, and before/after output.
 - Checkpoints view: list saved full checkpoints and load one as a chat model.
 - API CORS support for local browser development.
@@ -31,6 +31,14 @@ Use Windows Command Prompt with `.venv` activated:
 ```cmd
 python -m uvicorn apps.api.main:app --reload --port 8000
 ```
+
+Check the current runtime device:
+
+```cmd
+curl -s http://127.0.0.1:8000/health
+```
+
+The Web UI shows the same runtime in the top bar. CPU is fine for the tiny from-scratch lessons. GPT-2 instruction SFT should use CUDA for reasonable training time; CPU should be treated as a short smoke test only. Setup steps are in [GPU Runtime Setup for PyTorch](gpu-runtime.md).
 
 ## Run the Web UI
 
@@ -56,8 +64,10 @@ http://127.0.0.1:3000
 4. Run the The Verdict job to observe raw text continuation on a larger dataset.
 5. Open GPT-2 and load `GPT-2 small`.
 6. Return to Chat and ask an instruction-style request such as `Explain what a model checkpoint is in one sentence.`
-7. Open Instruction; the UI should select `instruction-following` and suggest `gpt2-124M` plus `gpt2-instruct-finetuned`.
-8. Open Experiments to compare raw pretrained GPT-2 and instruction-tuned GPT-2.
+7. Open Instruction; the UI should select `instruction-following` and show the three-step loop: instruction data, GPT-2 base, instruction SFT.
+8. Click `Download dataset` if the instruction data is missing. The panel should then show one dataset example and the formatted Chapter 7 model input.
+9. Load `GPT-2 small`, run instruction SFT, then compare `Before (raw GPT-2)` with `After (instruction SFT)`.
+10. Open Experiments to compare raw pretrained GPT-2 and instruction-tuned GPT-2.
 
 ## Why This Separation Matters
 
@@ -67,3 +77,4 @@ GPT-2 question/request behavior uses the Chapter 7 instruction prompt format. Be
 
 The dataset-size stage is available in [Dataset ladder and training experiments](dataset-ladder-experiments.md).
 GPT-2 loading and instruction prompts are explained in [GPT-2 Pretrained and Instruction Prompts](gpt2-pretrained.md).
+GPU setup is explained in [GPU Runtime Setup for PyTorch](gpu-runtime.md).

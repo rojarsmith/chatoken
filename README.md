@@ -171,6 +171,7 @@ The recommended next milestone is `training/jobs`: train a tiny model on the sho
 - [Minimal Web UI learning console](docs/web-console.md)
 - [Dataset ladder and training experiments](docs/dataset-ladder-experiments.md)
 - [GPT-2 Pretrained and Instruction Prompts](docs/gpt2-pretrained.md)
+- [GPU Runtime Setup for PyTorch](docs/gpu-runtime.md)
 - [`smoke_train.py` 繁體中文說明](docs/smoke-train.zh-TW.md)
 - [繁體中文學習驗證清單](docs/learning-experience.zh-TW.md)
 - [`smoke_chat.py` 繁體中文說明](docs/smoke-chat.zh-TW.md)
@@ -178,3 +179,4 @@ The recommended next milestone is `training/jobs`: train a tiny model on the sho
 - [最小 Web UI 學習控制台](docs/web-console.zh-TW.md)
 - [資料規模階梯與訓練實驗記錄](docs/dataset-ladder-experiments.zh-TW.md)
 - [GPT-2 Pretrained 與 Instruction Prompt](docs/gpt2-pretrained.zh-TW.md)
+- [PyTorch GPU Runtime 設定](docs/gpu-runtime.zh-TW.md)

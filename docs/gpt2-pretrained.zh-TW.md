@@ -61,6 +61,16 @@ curl -s -X POST http://127.0.0.1:8000/chat ^
 
 raw pretrained GPT-2 本質上是 completion model，不是 instruction-tuned assistant。instruction template 讓輸入格式跟 Chapter 7 fine-tuning 前一致；真正比較會不會聽指令，要看 instruction SFT 前後差異。
 
+## 檢查運算裝置
+
+執行 GPT-2 SFT 前，先確認 API 是否看得到 CUDA：
+
+```cmd
+curl -s http://127.0.0.1:8000/health
+```
+
+如果回應是 `"device":"cpu"`，GPT-2 SFT 只適合跑很短的 smoke test。實際要在合理時間訓練，請在 `.venv` 安裝 CUDA 版 PyTorch，然後重啟 API。請看 [PyTorch GPU Runtime 設定](gpu-runtime.zh-TW.md)。
+
 ## The Verdict 是 Raw Text Training
 
 The Verdict 應該搭配從零開始的小模型：
@@ -76,6 +86,14 @@ curl -s -X POST http://127.0.0.1:8000/training/jobs ^
 ## Instruction Fine-Tuning
 
 `instruction-following` 要在載入 GPT-2 後使用：
+
+先準備本機 instruction dataset：
+
+```cmd
+curl -s -X POST http://127.0.0.1:8000/training/datasets/instruction-following/prepare
+```
+
+再啟動 SFT job：
 
 ```cmd
 curl -s -X POST http://127.0.0.1:8000/training/jobs ^

@@ -19,7 +19,7 @@ GPT-2 -> instruction prompt -> optional instruction SFT
 - From Scratch view：用小型 chat-shaped datasets 訓練 tiny model。
 - Raw Text view：用 The Verdict 做較大的 continuation text 訓練。
 - GPT-2 view：下載並載入 GPT-2 pretrained weights。
-- Instruction view：用 instruction/response data fine-tune GPT-2。
+- Instruction view：準備 instruction data、載入 GPT-2，然後用 instruction/response examples fine-tune。
 - Experiments view：依 objective、loss、before/after output 比較訓練紀錄。
 - Checkpoints view：列出 full checkpoints，並載入成 chat model。
 - API CORS：支援本機瀏覽器開發。
@@ -31,6 +31,14 @@ GPT-2 -> instruction prompt -> optional instruction SFT
 ```cmd
 python -m uvicorn apps.api.main:app --reload --port 8000
 ```
+
+檢查目前運算裝置：
+
+```cmd
+curl -s http://127.0.0.1:8000/health
+```
+
+Web UI 頂部會顯示同一份 runtime 資訊。CPU 可以用來跑 tiny from-scratch 學習階段；GPT-2 instruction SFT 若要在合理時間完成，應該使用 CUDA。CPU 只建議當成很短的 smoke test。設定步驟請看 [PyTorch GPU Runtime 設定](gpu-runtime.zh-TW.md)。
 
 ## 啟動 Web UI
 
@@ -56,8 +64,10 @@ http://127.0.0.1:3000
 4. 跑 The Verdict job，觀察較大資料上的 raw text continuation。
 5. 打開 GPT-2，載入 `GPT-2 small`。
 6. 回到 Chat，問一個 instruction-style request，例如 `Explain what a model checkpoint is in one sentence.`
-7. 打開 Instruction；UI 應該選到 `instruction-following`，並建議 `gpt2-124M` 和 `gpt2-instruct-finetuned`。
-8. 打開 Experiments，比較 raw pretrained GPT-2 和 instruction-tuned GPT-2。
+7. 打開 Instruction；UI 應該選到 `instruction-following`，並顯示三步驟閉環：instruction data、GPT-2 base、instruction SFT。
+8. 如果 instruction data 還不存在，按 `Download dataset`。面板接著應該顯示一筆 dataset example 和格式化後的 Chapter 7 model input。
+9. 載入 `GPT-2 small`，執行 instruction SFT，然後比較 `Before (raw GPT-2)` 和 `After (instruction SFT)`。
+10. 打開 Experiments，比較 raw pretrained GPT-2 和 instruction-tuned GPT-2。
 
 ## 為什麼要分開
 
@@ -67,3 +77,4 @@ GPT-2 的 question/request 行為使用 Chapter 7 instruction prompt 格式。�
 
 資料規模階段請看 [資料規模階梯與訓練實驗記錄](dataset-ladder-experiments.zh-TW.md)。
 GPT-2 載入與 instruction prompt 請看 [GPT-2 Pretrained 與 Instruction Prompt](gpt2-pretrained.zh-TW.md)。
+GPU 設定請看 [PyTorch GPU Runtime 設定](gpu-runtime.zh-TW.md)。

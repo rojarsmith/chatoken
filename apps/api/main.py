@@ -7,6 +7,7 @@ from threading import Lock
 from typing import Literal
 from uuid import uuid4
 
+import torch
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -120,8 +121,8 @@ pretrained_jobs: dict[str, PretrainedJob] = {}
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict:
+    return {"status": "ok", **_runtime_info()}
 
 
 @app.get("/models")
@@ -219,6 +220,18 @@ def get_chat_job(job_id: str) -> dict:
 @app.get("/training/datasets")
 def list_training_datasets() -> list[dict]:
     return training_service.list_datasets()
+
+
+@app.post("/training/datasets/{dataset_id}/prepare")
+def prepare_training_dataset(dataset_id: str) -> dict:
+    try:
+        return training_service.prepare_dataset(dataset_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/training/experiments")
@@ -377,3 +390,15 @@ def _to_training_request_data(request: TrainingRequest, job_id: str | None = Non
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _runtime_info() -> dict:
+    cuda_available = torch.cuda.is_available()
+    return {
+        "torch_version": torch.__version__,
+        "device": "cuda" if cuda_available else "cpu",
+        "cuda_available": cuda_available,
+        "cuda_version": torch.version.cuda,
+        "device_count": torch.cuda.device_count(),
+        "device_name": torch.cuda.get_device_name(0) if cuda_available else None,
+    }
