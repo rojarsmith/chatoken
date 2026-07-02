@@ -16,8 +16,10 @@ GPT-2 -> instruction prompt -> optional instruction SFT
 
 - `apps/web`: a minimal Next.js learning console.
 - Chat view: send a prompt to a selected model.
-- Pretrained view: download and load GPT-2 pretrained weights.
-- Training view: choose a dataset objective and base model, then start an asynchronous training job.
+- From Scratch view: train the tiny model on small chat-shaped datasets.
+- Raw Text view: train on The Verdict as larger continuation text.
+- GPT-2 view: download and load GPT-2 pretrained weights.
+- Instruction view: fine-tune GPT-2 on instruction/response data.
 - Experiments view: compare saved training runs across objective, loss, and before/after output.
 - Checkpoints view: list saved full checkpoints and load one as a chat model.
 - API CORS support for local browser development.
@@ -49,12 +51,12 @@ http://127.0.0.1:3000
 ## Learning Flow
 
 1. Open Chat and send `Every effort moves you` to `random-tiny-byte`.
-2. Open Training and run `every-effort`, then compare before/after.
-3. Select `the-verdict`; the UI should suggest `random-tiny-byte` and `trained-verdict-byte`.
+2. Open From Scratch and run `every-effort`, then compare before/after.
+3. Open Raw Text; the UI should select `the-verdict` and suggest `random-tiny-byte` plus `trained-verdict-byte`.
 4. Run the The Verdict job to observe raw text continuation on a larger dataset.
-5. Open Pretrained and load `GPT-2 small`.
+5. Open GPT-2 and load `GPT-2 small`.
 6. Return to Chat and ask an instruction-style request such as `Explain what a model checkpoint is in one sentence.`
-7. For instruction fine-tuning, select `instruction-following`; the UI should suggest `gpt2-124M` and `gpt2-instruct-finetuned`.
+7. Open Instruction; the UI should select `instruction-following` and suggest `gpt2-124M` plus `gpt2-instruct-finetuned`.
 8. Open Experiments to compare raw pretrained GPT-2 and instruction-tuned GPT-2.
 
 ## Why This Separation Matters

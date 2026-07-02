@@ -182,8 +182,11 @@ def list_checkpoints() -> list[dict]:
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
-    result = chat_service.generate_reply(_to_request_data(request))
-    return ChatResponse(**result)
+    try:
+        result = chat_service.generate_reply(_to_request_data(request))
+        return ChatResponse(**result)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/chat/jobs")

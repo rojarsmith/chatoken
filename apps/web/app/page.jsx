@@ -37,10 +37,85 @@ const FALLBACK_MODELS = [
   }
 ];
 
+const LEARNING_STAGES = {
+  "from-scratch": {
+    id: "from-scratch",
+    label: "From Scratch",
+    title: "From Scratch",
+    description: "Train the tiny model from random weights on small datasets.",
+    datasetIds: ["every-effort", "every-effort-expanded", "learning-dialogues"],
+    fallbackDataset: {
+      dataset_id: "every-effort",
+      tier: "tiny",
+      label: "Tiny repeated phrase",
+      description: "The shortest repeated dataset.",
+      recommended_steps: 80,
+      recommended_batch_size: 4,
+      recommended_block_size: 32,
+      recommended_learning_rate: 0.003,
+      recommended_base_model_id: "random-tiny-byte",
+      comparison_prompt: DEFAULT_CHAT_MESSAGE,
+      dataset_probe_prompt: DEFAULT_CHAT_MESSAGE,
+      output_model_id: "trained-tiny-byte",
+      training_objective: "text",
+      learning_stage: "from-scratch"
+    }
+  },
+  "raw-text": {
+    id: "raw-text",
+    label: "Raw Text",
+    title: "Raw Text Pretraining",
+    description: "Use The Verdict as larger raw text for continuation training.",
+    datasetIds: ["the-verdict"],
+    fallbackDataset: {
+      dataset_id: "the-verdict",
+      tier: "larger",
+      label: "The Verdict",
+      description: "A larger raw-text dataset.",
+      recommended_steps: 320,
+      recommended_batch_size: 4,
+      recommended_block_size: 64,
+      recommended_learning_rate: 0.003,
+      recommended_base_model_id: "random-tiny-byte",
+      comparison_prompt: "I had always thought Jack Gisburn",
+      dataset_probe_prompt: "I had always thought Jack Gisburn",
+      output_model_id: "trained-verdict-byte",
+      training_objective: "raw-text",
+      learning_stage: "raw-text"
+    }
+  },
+  instruction: {
+    id: "instruction",
+    label: "Instruction",
+    title: "Instruction SFT",
+    description: "Fine-tune downloaded GPT-2 on instruction/response pairs.",
+    datasetIds: ["instruction-following"],
+    fallbackDataset: {
+      dataset_id: "instruction-following",
+      tier: "instruction",
+      label: "Instruction following",
+      description: "Instruction/response examples.",
+      recommended_steps: 20,
+      recommended_batch_size: 1,
+      recommended_block_size: 256,
+      recommended_learning_rate: 0.00005,
+      recommended_base_model_id: "gpt2-124M",
+      comparison_prompt: GPT2_INSTRUCTION_MESSAGE,
+      dataset_probe_prompt:
+        "Convert the active sentence to passive: The chef cooks the meal every day.",
+      output_model_id: "gpt2-instruct-finetuned",
+      training_objective: "instruction-sft",
+      learning_stage: "instruction"
+    }
+  }
+};
+
 const TABS = [
   { id: "chat", label: "Chat", icon: Send },
-  { id: "pretrained", label: "Pretrained", icon: Download },
-  { id: "training", label: "Training", icon: Activity },
+  { id: "from-scratch", label: "From Scratch", icon: Activity },
+  { id: "raw-text", label: "Raw Text", icon: Database },
+  { id: "pretrained", label: "GPT-2", icon: Download },
+  { id: "instruction", label: "Instruction", icon: SlidersHorizontal },
   { id: "experiments", label: "Experiments", icon: History },
   { id: "checkpoints", label: "Checkpoints", icon: Save }
 ];
@@ -66,7 +141,7 @@ export default function Home() {
   const [isChatting, setIsChatting] = useState(false);
 
   const [leftModelId, setLeftModelId] = useState("random-tiny-byte");
-  const [rightModelId, setRightModelId] = useState("trained-tiny-byte");
+  const [rightModelId, setRightModelId] = useState("random-tiny-byte");
   const [compareResults, setCompareResults] = useState(null);
   const [isComparing, setIsComparing] = useState(false);
 
@@ -115,6 +190,10 @@ export default function Home() {
     });
     return Array.from(byId.values());
   }, [baseModelId, chatModelId, leftModelId, models, rightModelId]);
+  const chatModelOptions = useMemo(() => {
+    const options = modelOptions.filter((model) => model.state !== "not-loaded");
+    return options.length > 0 ? options : FALLBACK_MODELS;
+  }, [modelOptions]);
 
   const lastProgress = trainingJob?.progress?.at(-1);
   const progressPercent = lastProgress
@@ -125,9 +204,26 @@ export default function Home() {
   const pretrainedIsActive =
     pretrainedJob?.status === "queued" || pretrainedJob?.status === "running";
   const selectedDataset = useMemo(
-    () => datasets.find((dataset) => dataset.dataset_id === datasetId),
+    () =>
+      datasets.find((dataset) => dataset.dataset_id === datasetId) ||
+      Object.values(LEARNING_STAGES)
+        .map((stage) => stage.fallbackDataset)
+        .find((dataset) => dataset.dataset_id === datasetId),
     [datasetId, datasets]
   );
+  const datasetsByStage = useMemo(() => {
+    const byStage = {};
+    for (const stage of Object.values(LEARNING_STAGES)) {
+      const matchingDatasets = datasets.filter(
+        (dataset) =>
+          dataset.learning_stage === stage.id ||
+          stage.datasetIds.includes(dataset.dataset_id)
+      );
+      byStage[stage.id] =
+        matchingDatasets.length > 0 ? matchingDatasets : [stage.fallbackDataset];
+    }
+    return byStage;
+  }, [datasets]);
   const experimentsById = useMemo(
     () =>
       new Map(
@@ -152,6 +248,20 @@ export default function Home() {
   }, [apiBaseUrl]);
 
   useEffect(() => {
+    const availableIds = new Set(chatModelOptions.map((model) => model.model_id));
+    const fallbackId = chatModelOptions[0]?.model_id || "random-tiny-byte";
+    if (!availableIds.has(chatModelId)) {
+      setChatModelId(fallbackId);
+    }
+    if (!availableIds.has(leftModelId)) {
+      setLeftModelId(fallbackId);
+    }
+    if (!availableIds.has(rightModelId)) {
+      setRightModelId(fallbackId);
+    }
+  }, [chatModelId, chatModelOptions, leftModelId, rightModelId]);
+
+  useEffect(() => {
     refreshAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [normalizedApiBaseUrl]);
@@ -161,9 +271,14 @@ export default function Home() {
       return undefined;
     }
 
-    const timeoutId = window.setTimeout(async () => {
+    const jobId = trainingJob.job_id;
+    let stopped = false;
+    const pollJob = async () => {
       try {
-        const job = await requestJson(`/training/jobs/${trainingJob.job_id}`);
+        const job = await requestJson(`/training/jobs/${jobId}`);
+        if (stopped) {
+          return;
+        }
         setTrainingJob(job);
         if (job.status === "succeeded") {
           await refreshAll();
@@ -176,20 +291,30 @@ export default function Home() {
       } catch (error) {
         setTrainingError(error.message);
       }
-    }, 1000);
+    };
+    pollJob();
+    const intervalId = window.setInterval(pollJob, 1000);
 
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      stopped = true;
+      window.clearInterval(intervalId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trainingIsActive, trainingJob?.job_id, trainingJob?.updated_at]);
+  }, [trainingIsActive, trainingJob?.job_id]);
 
   useEffect(() => {
     if (!pretrainedIsActive || !pretrainedJob?.job_id) {
       return undefined;
     }
 
-    const timeoutId = window.setTimeout(async () => {
+    const jobId = pretrainedJob.job_id;
+    let stopped = false;
+    const pollJob = async () => {
       try {
-        const job = await requestJson(`/pretrained/jobs/${pretrainedJob.job_id}`);
+        const job = await requestJson(`/pretrained/jobs/${jobId}`);
+        if (stopped) {
+          return;
+        }
         setPretrainedJob(job);
         if (job.status === "succeeded") {
           await refreshAll();
@@ -203,11 +328,16 @@ export default function Home() {
       } catch (error) {
         setPretrainedError(error.message);
       }
-    }, 1200);
+    };
+    pollJob();
+    const intervalId = window.setInterval(pollJob, 1200);
 
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      stopped = true;
+      window.clearInterval(intervalId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pretrainedIsActive, pretrainedJob?.job_id, pretrainedJob?.updated_at]);
+  }, [pretrainedIsActive, pretrainedJob?.job_id]);
 
   async function requestJson(path, options = {}) {
     const response = await fetch(`${normalizedApiBaseUrl}${path}`, {
@@ -345,7 +475,6 @@ export default function Home() {
     setIsStartingTraining(true);
     setTrainingError("");
     setTrainingJob(null);
-    setActiveTab("training");
 
     try {
       const job = await requestJson("/training/jobs", {
@@ -393,12 +522,37 @@ export default function Home() {
     }
   }
 
+  function openTab(nextTab) {
+    setActiveTab(nextTab);
+    const stage = LEARNING_STAGES[nextTab];
+    if (!stage) {
+      return;
+    }
+
+    const stageDatasets = datasetsByStage[stage.id] || [stage.fallbackDataset];
+    const currentBelongsToStage = stageDatasets.some(
+      (dataset) => dataset.dataset_id === datasetId
+    );
+    if (!currentBelongsToStage && stageDatasets[0]) {
+      applyDataset(stageDatasets[0]);
+    }
+  }
+
   function selectDataset(nextDatasetId) {
-    setDatasetId(nextDatasetId);
-    const dataset = datasets.find((item) => item.dataset_id === nextDatasetId);
+    const fallbackDatasets = Object.values(LEARNING_STAGES).map(
+      (stage) => stage.fallbackDataset
+    );
+    const dataset =
+      datasets.find((item) => item.dataset_id === nextDatasetId) ||
+      fallbackDatasets.find((item) => item.dataset_id === nextDatasetId);
     if (!dataset) {
       return;
     }
+    applyDataset(dataset);
+  }
+
+  function applyDataset(dataset) {
+    setDatasetId(dataset.dataset_id);
     setTrainingSteps(dataset.recommended_steps || trainingSteps);
     setBatchSize(dataset.recommended_batch_size || batchSize);
     setBlockSize(dataset.recommended_block_size || blockSize);
@@ -508,7 +662,7 @@ export default function Home() {
               key={tab.id}
               type="button"
               className={activeTab === tab.id ? "tab active" : "tab"}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => openTab(tab.id)}
             >
               <Icon aria-hidden="true" />
               {tab.label}
@@ -531,7 +685,7 @@ export default function Home() {
               leftModelId={leftModelId}
               maxNewTokens={maxNewTokens}
               message={message}
-              modelOptions={modelOptions}
+              modelOptions={chatModelOptions}
               rightModelId={rightModelId}
               sendChat={sendChat}
               setChatModelId={setChatModelId}
@@ -555,13 +709,13 @@ export default function Home() {
             />
           )}
 
-          {activeTab === "training" && (
+          {LEARNING_STAGES[activeTab] && (
             <TrainingView
               batchSize={batchSize}
               baseModelId={baseModelId}
               blockSize={blockSize}
               datasetId={datasetId}
-              datasets={datasets}
+              datasets={datasetsByStage[activeTab] || []}
               evalEvery={evalEvery}
               isStartingTraining={isStartingTraining}
               lastProgress={lastProgress}
@@ -580,6 +734,7 @@ export default function Home() {
               setLoadWhenComplete={setLoadWhenComplete}
               setOutputModelId={setOutputModelId}
               setTrainingSteps={setTrainingSteps}
+              stage={LEARNING_STAGES[activeTab]}
               startTraining={startTraining}
               trainingError={trainingError}
               trainingJob={trainingJob}
@@ -632,19 +787,26 @@ export default function Home() {
               <h2>Datasets</h2>
             </div>
             <div className="stack">
-              {(datasets.length ? datasets : [{ dataset_id: "every-effort", exists: false }]).map(
-                (dataset) => (
-                  <div className="data-row" key={dataset.dataset_id}>
-                    <div>
-                      <strong>{dataset.dataset_id}</strong>
-                      <span>{dataset.tier || "tiny"} / {dataset.byte_tokens || 0} tokens</span>
-                    </div>
-                    <span className={dataset.exists ? "state good" : "state muted"}>
-                      {dataset.exists ? "ready" : "missing"}
-                    </span>
-                  </div>
-                )
-              )}
+              {Object.values(LEARNING_STAGES).map((stage) => (
+                <div className="rail-stage" key={stage.id}>
+                  <h3>{stage.label}</h3>
+                  {(datasetsByStage[stage.id] || [stage.fallbackDataset]).map(
+                    (dataset) => (
+                      <div className="data-row" key={dataset.dataset_id}>
+                        <div>
+                          <strong>{dataset.dataset_id}</strong>
+                          <span>
+                            {dataset.tier || "tiny"} / {dataset.byte_tokens || 0} tokens
+                          </span>
+                        </div>
+                        <span className={dataset.exists ? "state good" : "state muted"}>
+                          {dataset.exists ? "ready" : "missing"}
+                        </span>
+                      </div>
+                    )
+                  )}
+                </div>
+              ))}
             </div>
           </section>
         </aside>
@@ -949,6 +1111,7 @@ function TrainingView({
   setLoadWhenComplete,
   setOutputModelId,
   setTrainingSteps,
+  stage,
   startTraining,
   trainingError,
   trainingJob,
@@ -958,8 +1121,8 @@ function TrainingView({
     <section className="panel">
       <div className="panel-heading">
         <div>
-          <h2>Training</h2>
-          <p>Run the selected dataset objective and save a checkpoint.</p>
+          <h2>{stage.title}</h2>
+          <p>{stage.description}</p>
         </div>
         <button
           className="primary-button"
@@ -1098,6 +1261,10 @@ function TrainingView({
           </div>
           <div className="prompt-pair">
             <div>
+              <span>Learning goal</span>
+              <strong>{selectedDataset.learning_goal || stage.description}</strong>
+            </div>
+            <div>
               <span>Comparison prompt</span>
               <strong>{selectedDataset.comparison_prompt || selectedDataset.sample_prompt}</strong>
             </div>
@@ -1191,7 +1358,7 @@ function DatasetLadder({ datasetId, datasets, selectDataset }) {
             <span className="tier-label">{dataset.tier || "tiny"}</span>
             <strong>{dataset.label || dataset.dataset_id}</strong>
           </div>
-          <p>{dataset.description}</p>
+          <p>{dataset.learning_goal || dataset.description}</p>
           <div className="dataset-meta">
             <span>{dataset.byte_tokens || 0} tokens</span>
             <span>{dataset.recommended_steps || 0} steps</span>

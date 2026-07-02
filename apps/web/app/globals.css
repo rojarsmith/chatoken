@@ -254,6 +254,7 @@ button:focus-visible {
 
 .tabs {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin-bottom: 18px;
   padding: 4px;
@@ -347,7 +348,7 @@ button:focus-visible {
 
 .dataset-ladder {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -719,6 +720,19 @@ button:focus-visible {
 
 .data-row {
   padding: 10px 12px;
+}
+
+.rail-stage {
+  display: grid;
+  gap: 8px;
+}
+
+.rail-stage h3 {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .empty-state {

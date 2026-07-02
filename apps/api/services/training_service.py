@@ -65,6 +65,9 @@ class DatasetSpec:
     output_model_id: str
     training_objective: str = "text"
     prompt_style: str = "chat"
+    learning_stage: str = "from-scratch"
+    learning_stage_label: str = "From Scratch"
+    learning_goal: str = "Train a tiny model from random weights."
     source_url: str | None = None
 
 
@@ -91,6 +94,9 @@ class TrainingService:
                 comparison_prompt=DEFAULT_COMPARISON_PROMPT,
                 dataset_probe_prompt="Every effort moves you",
                 output_model_id="trained-tiny-byte",
+                learning_goal=(
+                    "Start with a tiny random model and overfit the shortest dataset."
+                ),
             ),
             "every-effort-expanded": DatasetSpec(
                 dataset_id="every-effort-expanded",
@@ -106,6 +112,9 @@ class TrainingService:
                 comparison_prompt=DEFAULT_COMPARISON_PROMPT,
                 dataset_probe_prompt="Small steps compound",
                 output_model_id="trained-small-byte",
+                learning_goal=(
+                    "Increase dataset variety while still training from random weights."
+                ),
             ),
             "learning-dialogues": DatasetSpec(
                 dataset_id="learning-dialogues",
@@ -121,6 +130,9 @@ class TrainingService:
                 comparison_prompt=DEFAULT_COMPARISON_PROMPT,
                 dataset_probe_prompt="What does training do",
                 output_model_id="trained-medium-byte",
+                learning_goal=(
+                    "Use more examples to compare loss and generated behavior."
+                ),
             ),
             "the-verdict": DatasetSpec(
                 dataset_id="the-verdict",
@@ -140,6 +152,11 @@ class TrainingService:
                 output_model_id="trained-verdict-byte",
                 training_objective="raw-text",
                 prompt_style="raw",
+                learning_stage="raw-text",
+                learning_stage_label="Raw Text Pretraining",
+                learning_goal=(
+                    "Train next-token continuation on a larger raw text file."
+                ),
                 source_url=THE_VERDICT_URL,
             ),
             "instruction-following": DatasetSpec(
@@ -160,6 +177,11 @@ class TrainingService:
                 output_model_id="gpt2-instruct-finetuned",
                 training_objective="instruction-sft",
                 prompt_style="instruction",
+                learning_stage="instruction",
+                learning_stage_label="Instruction SFT",
+                learning_goal=(
+                    "Fine-tune downloaded GPT-2 on instruction/response examples."
+                ),
                 source_url=INSTRUCTION_DATA_URL,
             ),
         }
@@ -191,6 +213,9 @@ class TrainingService:
                     "output_model_id": spec.output_model_id,
                     "training_objective": spec.training_objective,
                     "prompt_style": spec.prompt_style,
+                    "learning_stage": spec.learning_stage,
+                    "learning_stage_label": spec.learning_stage_label,
+                    "learning_goal": spec.learning_goal,
                     "source_url": spec.source_url,
                 }
             )
@@ -279,6 +304,9 @@ class TrainingService:
         training_summary["dataset_path"] = str(dataset.path)
         training_summary["training_objective"] = dataset.training_objective
         training_summary["prompt_style"] = dataset.prompt_style
+        training_summary["learning_stage"] = dataset.learning_stage
+        training_summary["learning_stage_label"] = dataset.learning_stage_label
+        training_summary["learning_goal"] = dataset.learning_goal
         training_summary["comparison_prompt"] = request.sample_prompt
         training_summary["dataset_probe_prompt"] = dataset.dataset_probe_prompt
 
@@ -344,6 +372,9 @@ class TrainingService:
             "dataset_tokens": training_summary.get("dataset_tokens"),
             "training_objective": training_summary.get("training_objective"),
             "prompt_style": training_summary.get("prompt_style"),
+            "learning_stage": training_summary.get("learning_stage"),
+            "learning_stage_label": training_summary.get("learning_stage_label"),
+            "learning_goal": training_summary.get("learning_goal"),
             "base_model_id": request.base_model_id,
             "output_model_id": request.output_model_id,
             "checkpoint_id": checkpoint["checkpoint_id"],
