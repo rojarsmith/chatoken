@@ -80,6 +80,13 @@ class ModelLoadRequest(BaseModel):
     model_id: str | None = None
 
 
+class DatasetBuilderExampleRequest(BaseModel):
+    instruction: str = Field(..., min_length=1, max_length=2_000)
+    input: str = Field("", max_length=4_000)
+    output: str = Field(..., min_length=1, max_length=4_000)
+    split: Literal["train", "eval"] = "train"
+
+
 @dataclass
 class ChatJob:
     job_id: str
@@ -220,6 +227,58 @@ def get_chat_job(job_id: str) -> dict:
 @app.get("/training/datasets")
 def list_training_datasets() -> list[dict]:
     return training_service.list_datasets()
+
+
+@app.get("/training/dataset-builder")
+def get_training_dataset_builder() -> dict:
+    try:
+        return training_service.get_builder_dataset()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/training/dataset-builder/seed")
+def seed_training_dataset_builder() -> dict:
+    try:
+        return training_service.seed_builder_dataset()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/training/dataset-builder/examples")
+def create_training_dataset_builder_example(
+    request: DatasetBuilderExampleRequest,
+) -> dict:
+    try:
+        return training_service.create_builder_example(request.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.put("/training/dataset-builder/examples/{example_id}")
+def update_training_dataset_builder_example(
+    example_id: str,
+    request: DatasetBuilderExampleRequest,
+) -> dict:
+    try:
+        return training_service.update_builder_example(
+            example_id,
+            request.model_dump(),
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete("/training/dataset-builder/examples/{example_id}")
+def delete_training_dataset_builder_example(example_id: str) -> dict:
+    try:
+        return training_service.delete_builder_example(example_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/training/datasets/{dataset_id}/prepare")

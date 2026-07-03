@@ -261,6 +261,15 @@ button:focus-visible {
   color: var(--blue);
 }
 
+.secondary-button.danger {
+  color: var(--red);
+}
+
+.secondary-button.danger:hover:not(:disabled) {
+  border-color: var(--red);
+  color: var(--red);
+}
+
 .primary-button svg,
 .secondary-button svg,
 .icon-button svg {
@@ -355,6 +364,13 @@ button:focus-visible {
   width: 18px;
   height: 18px;
   color: var(--blue);
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .form-grid {
@@ -606,6 +622,88 @@ button:focus-visible {
   border-radius: 8px;
   padding: 12px;
   background: #fbfcfe;
+}
+
+.builder-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.builder-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.builder-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.builder-example-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.builder-example-body {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.builder-example-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.builder-example-heading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.builder-example-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.builder-example-fields div {
+  display: grid;
+  gap: 4px;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px;
+}
+
+.builder-example-fields span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.builder-example-fields p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.builder-example-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .instruction-loop {
@@ -1011,6 +1109,8 @@ button:focus-visible {
   .comparison-grid,
   .experiment-controls,
   .experiment-row,
+  .builder-example-fields,
+  .builder-example-row,
   .metric-grid,
   .prompt-pair,
   .checkpoint-row {

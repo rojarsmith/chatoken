@@ -173,6 +173,7 @@ The recommended next milestone is `training/jobs`: train a tiny model on the sho
 - [Dataset ladder and training experiments](docs/dataset-ladder-experiments.md)
 - [GPT-2 Pretrained and Instruction Prompts](docs/gpt2-pretrained.md)
 - [LoRA / Parameter-Efficient Fine-Tuning](docs/lora-peft.md)
+- [Training Data Management and Dataset Builder](docs/dataset-builder.md)
 - [GPU Runtime Setup for PyTorch](docs/gpu-runtime.md)
 - [`smoke_train.py` 繁體中文說明](docs/smoke-train.zh-TW.md)
 - [繁體中文學習驗證清單](docs/learning-experience.zh-TW.md)
@@ -183,4 +184,5 @@ The recommended next milestone is `training/jobs`: train a tiny model on the sho
 - [資料規模階梯與訓練實驗記錄](docs/dataset-ladder-experiments.zh-TW.md)
 - [GPT-2 Pretrained 與 Instruction Prompt](docs/gpt2-pretrained.zh-TW.md)
 - [LoRA / Parameter-Efficient Fine-Tuning](docs/lora-peft.zh-TW.md)
+- [訓練資料管理與 Dataset Builder](docs/dataset-builder.zh-TW.md)
 - [PyTorch GPU Runtime 設定](docs/gpu-runtime.zh-TW.md)

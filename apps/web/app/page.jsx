@@ -11,12 +11,15 @@ import {
   History,
   Layers3,
   LoaderCircle,
+  Pencil,
   Play,
+  Plus,
   RefreshCw,
   Save,
   Send,
   Server,
   SlidersHorizontal,
+  Trash2,
   XCircle
 } from "lucide-react";
 
@@ -25,6 +28,13 @@ const DEFAULT_API_BASE_URL =
 const DEFAULT_CHAT_MESSAGE = "Every effort moves you";
 const GPT2_INSTRUCTION_MESSAGE =
   "Explain what a model checkpoint is in one sentence.";
+const EMPTY_BUILDER_DRAFT = {
+  example_id: "",
+  split: "train",
+  instruction: "",
+  input: "",
+  output: ""
+};
 
 const FALLBACK_MODELS = [
   {
@@ -131,6 +141,32 @@ const LEARNING_STAGES = {
       training_objective: "instruction-lora",
       learning_stage: "lora"
     }
+  },
+  "dataset-builder": {
+    id: "dataset-builder",
+    label: "Dataset Builder",
+    title: "Custom Instruction Training",
+    description: "Build train/eval examples, then fine-tune GPT-2 from that dataset.",
+    datasetIds: ["instruction-builder"],
+    fallbackDataset: {
+      dataset_id: "instruction-builder",
+      tier: "custom",
+      label: "Dataset builder",
+      description: "Editable instruction examples.",
+      recommended_steps: 20,
+      recommended_batch_size: 1,
+      recommended_block_size: 256,
+      recommended_learning_rate: 0.00005,
+      recommended_base_model_id: "gpt2-124M",
+      comparison_prompt: GPT2_INSTRUCTION_MESSAGE,
+      dataset_probe_prompt:
+        "Summarize why splitting data into train and eval examples is useful.",
+      output_model_id: "gpt2-builder-finetuned",
+      training_objective: "instruction-sft",
+      learning_stage: "dataset-builder",
+      train_examples: 0,
+      eval_examples: 0
+    }
   }
 };
 
@@ -143,6 +179,7 @@ const TABS = [
   { id: "pretrained", label: "GPT-2", icon: Download },
   { id: "instruction", label: "Instruction", icon: SlidersHorizontal },
   { id: "lora", label: "LoRA", icon: Layers3 },
+  { id: "dataset-builder", label: "Dataset Builder", icon: Database },
   { id: "experiments", label: "Experiments", icon: History },
   { id: "checkpoints", label: "Checkpoints", icon: Save }
 ];
@@ -352,6 +389,12 @@ export default function Home() {
   const [pretrainedJob, setPretrainedJob] = useState(null);
   const [pretrainedError, setPretrainedError] = useState("");
   const [isStartingPretrained, setIsStartingPretrained] = useState(false);
+  const [builderDataset, setBuilderDataset] = useState(null);
+  const [builderDraft, setBuilderDraft] = useState(EMPTY_BUILDER_DRAFT);
+  const [builderError, setBuilderError] = useState("");
+  const [isSavingBuilder, setIsSavingBuilder] = useState(false);
+  const [isSeedingBuilder, setIsSeedingBuilder] = useState(false);
+  const [deletingBuilderExampleId, setDeletingBuilderExampleId] = useState("");
 
   const [loadingCheckpointId, setLoadingCheckpointId] = useState("");
   const [checkpointError, setCheckpointError] = useState("");
@@ -570,14 +613,16 @@ export default function Home() {
       pretrainedResult,
       datasetsResult,
       experimentsResult,
-      checkpointsResult
+      checkpointsResult,
+      builderResult
     ] =
       await Promise.allSettled([
         requestJson("/models"),
         requestJson("/pretrained/models"),
         requestJson("/training/datasets"),
         requestJson("/training/experiments"),
-        requestJson("/checkpoints")
+        requestJson("/checkpoints"),
+        requestJson("/training/dataset-builder")
       ]);
 
     if (modelsResult.status === "fulfilled") {
@@ -607,6 +652,9 @@ export default function Home() {
     }
     if (checkpointsResult.status === "fulfilled") {
       setCheckpoints(checkpointsResult.value);
+    }
+    if (builderResult.status === "fulfilled") {
+      setBuilderDataset(builderResult.value);
     }
 
     setIsRefreshing(false);
@@ -735,6 +783,94 @@ export default function Home() {
       setDatasetPrepareError(error.message);
     } finally {
       setIsPreparingDataset(false);
+    }
+  }
+
+  function updateBuilderDraft(field, value) {
+    setBuilderDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function editBuilderExample(example) {
+    setBuilderError("");
+    setBuilderDraft({
+      example_id: example.example_id,
+      split: example.split || "train",
+      instruction: example.instruction || "",
+      input: example.input || "",
+      output: example.output || ""
+    });
+  }
+
+  function clearBuilderDraft() {
+    setBuilderError("");
+    setBuilderDraft({ ...EMPTY_BUILDER_DRAFT });
+  }
+
+  async function saveBuilderExample(event) {
+    event.preventDefault();
+    setIsSavingBuilder(true);
+    setBuilderError("");
+
+    const isEditing = Boolean(builderDraft.example_id);
+    const path = isEditing
+      ? `/training/dataset-builder/examples/${builderDraft.example_id}`
+      : "/training/dataset-builder/examples";
+
+    try {
+      const updatedBuilder = await requestJson(path, {
+        method: isEditing ? "PUT" : "POST",
+        body: JSON.stringify({
+          instruction: builderDraft.instruction,
+          input: builderDraft.input,
+          output: builderDraft.output,
+          split: builderDraft.split
+        })
+      });
+      setBuilderDataset(updatedBuilder);
+      setBuilderDraft({ ...EMPTY_BUILDER_DRAFT });
+      await refreshAll();
+    } catch (error) {
+      setBuilderError(error.message);
+    } finally {
+      setIsSavingBuilder(false);
+    }
+  }
+
+  async function seedBuilderDataset() {
+    setIsSeedingBuilder(true);
+    setBuilderError("");
+
+    try {
+      const updatedBuilder = await requestJson("/training/dataset-builder/seed", {
+        method: "POST"
+      });
+      setBuilderDataset(updatedBuilder);
+      await refreshAll();
+    } catch (error) {
+      setBuilderError(error.message);
+    } finally {
+      setIsSeedingBuilder(false);
+    }
+  }
+
+  async function deleteBuilderExample(example) {
+    setDeletingBuilderExampleId(example.example_id);
+    setBuilderError("");
+
+    try {
+      const updatedBuilder = await requestJson(
+        `/training/dataset-builder/examples/${example.example_id}`,
+        { method: "DELETE" }
+      );
+      setBuilderDataset(updatedBuilder);
+      if (builderDraft.example_id === example.example_id) {
+        setBuilderDraft({ ...EMPTY_BUILDER_DRAFT });
+      }
+      await refreshAll();
+    } catch (error) {
+      setBuilderError(error.message);
+    } finally {
+      setDeletingBuilderExampleId("");
     }
   }
 
@@ -942,6 +1078,24 @@ export default function Home() {
               pretrainedModels={pretrainedModels}
               refreshAll={refreshAll}
               startPretrainedDownload={startPretrainedDownload}
+            />
+          )}
+
+          {activeTab === "dataset-builder" && (
+            <DatasetBuilderView
+              builderDataset={builderDataset}
+              builderDraft={builderDraft}
+              builderError={builderError}
+              clearBuilderDraft={clearBuilderDraft}
+              deleteBuilderExample={deleteBuilderExample}
+              deletingBuilderExampleId={deletingBuilderExampleId}
+              editBuilderExample={editBuilderExample}
+              isSavingBuilder={isSavingBuilder}
+              isSeedingBuilder={isSeedingBuilder}
+              refreshAll={refreshAll}
+              saveBuilderExample={saveBuilderExample}
+              seedBuilderDataset={seedBuilderDataset}
+              updateBuilderDraft={updateBuilderDraft}
             />
           )}
 
@@ -1598,6 +1752,191 @@ function PretrainedView({
   );
 }
 
+function DatasetBuilderView({
+  builderDataset,
+  builderDraft,
+  builderError,
+  clearBuilderDraft,
+  deleteBuilderExample,
+  deletingBuilderExampleId,
+  editBuilderExample,
+  isSavingBuilder,
+  isSeedingBuilder,
+  refreshAll,
+  saveBuilderExample,
+  seedBuilderDataset,
+  updateBuilderDraft
+}) {
+  const examples = builderDataset?.examples || [];
+  const trainCount =
+    builderDataset?.train_examples ??
+    examples.filter((example) => example.split === "train").length;
+  const evalCount =
+    builderDataset?.eval_examples ??
+    examples.filter((example) => example.split === "eval").length;
+  const isEditing = Boolean(builderDraft.example_id);
+
+  return (
+    <section className="panel dataset-builder-panel">
+      <div className="panel-heading">
+        <div>
+          <h2>Dataset Builder</h2>
+          <p>Create instruction examples, assign train/eval split, then train below.</p>
+        </div>
+        <div className="button-row">
+          <button className="secondary-button" type="button" onClick={refreshAll}>
+            <RefreshCw aria-hidden="true" />
+            Refresh
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={seedBuilderDataset}
+            disabled={isSeedingBuilder}
+          >
+            {isSeedingBuilder ? (
+              <LoaderCircle aria-hidden="true" className="spin" />
+            ) : (
+              <Database aria-hidden="true" />
+            )}
+            Seed
+          </button>
+        </div>
+      </div>
+
+      <div className="metric-grid">
+        <Metric label="Dataset" value={builderDataset?.dataset_id || "instruction-builder"} />
+        <Metric label="Train examples" value={trainCount} />
+        <Metric label="Eval examples" value={evalCount} />
+        <Metric label="File" value={builderDataset?.path || "data/custom/instruction-builder.json"} />
+        <Metric label="Objective" value={builderDataset?.training_objective || "instruction-sft"} />
+        <Metric label="Base model" value={builderDataset?.recommended_base_model_id || "gpt2-124M"} />
+      </div>
+
+      {builderError && <div className="error-line">{builderError}</div>}
+
+      <form className="builder-form" onSubmit={saveBuilderExample}>
+        <div className="form-grid">
+          <label className="field">
+            <span>Split</span>
+            <select
+              value={builderDraft.split}
+              onChange={(event) => updateBuilderDraft("split", event.target.value)}
+            >
+              <option value="train">train</option>
+              <option value="eval">eval</option>
+            </select>
+          </label>
+
+          <label className="field wide">
+            <span>Instruction</span>
+            <textarea
+              value={builderDraft.instruction}
+              onChange={(event) => updateBuilderDraft("instruction", event.target.value)}
+              placeholder="Explain what a model checkpoint is in one sentence."
+              required
+            />
+          </label>
+
+          <label className="field wide">
+            <span>Input</span>
+            <textarea
+              value={builderDraft.input}
+              onChange={(event) => updateBuilderDraft("input", event.target.value)}
+              placeholder="Optional extra input for the instruction."
+            />
+          </label>
+
+          <label className="field wide">
+            <span>Output</span>
+            <textarea
+              value={builderDraft.output}
+              onChange={(event) => updateBuilderDraft("output", event.target.value)}
+              placeholder="A model checkpoint is a saved snapshot of model weights and metadata."
+              required
+            />
+          </label>
+        </div>
+
+        <div className="builder-form-actions">
+          <button className="primary-button" type="submit" disabled={isSavingBuilder}>
+            {isSavingBuilder ? (
+              <LoaderCircle aria-hidden="true" className="spin" />
+            ) : isEditing ? (
+              <Pencil aria-hidden="true" />
+            ) : (
+              <Plus aria-hidden="true" />
+            )}
+            {isEditing ? "Update example" : "Add example"}
+          </button>
+          <button className="secondary-button" type="button" onClick={clearBuilderDraft}>
+            Clear
+          </button>
+        </div>
+      </form>
+
+      <div className="builder-list">
+        {examples.length === 0 ? (
+          <div className="empty-state">
+            <Database aria-hidden="true" />
+            <span>No custom examples yet</span>
+          </div>
+        ) : (
+          examples.map((example) => (
+            <article className="builder-example-row" key={example.example_id}>
+              <div className="builder-example-body">
+                <div className="builder-example-heading">
+                  <span
+                    className={
+                      example.split === "train" ? "state good" : "state active-state"
+                    }
+                  >
+                    {example.split}
+                  </span>
+                  <strong>{example.instruction}</strong>
+                </div>
+                <div className="builder-example-fields">
+                  <div>
+                    <span>Input</span>
+                    <p>{example.input || "-"}</p>
+                  </div>
+                  <div>
+                    <span>Output</span>
+                    <p>{example.output}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="builder-example-actions">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => editBuilderExample(example)}
+                >
+                  <Pencil aria-hidden="true" />
+                  Edit
+                </button>
+                <button
+                  className="secondary-button danger"
+                  type="button"
+                  onClick={() => deleteBuilderExample(example)}
+                  disabled={deletingBuilderExampleId === example.example_id}
+                >
+                  {deletingBuilderExampleId === example.example_id ? (
+                    <LoaderCircle aria-hidden="true" className="spin" />
+                  ) : (
+                    <Trash2 aria-hidden="true" />
+                  )}
+                  Delete
+                </button>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
 function TrainingView({
   batchSize,
   baseModelId,
@@ -1649,19 +1988,26 @@ function TrainingView({
     (model) => model.model_id === "gpt2-124M" && model.state !== "not-loaded"
   );
   const isLoraStage = stage.id === "lora";
-  const showInstructionLoop = stage.id === "instruction" || isLoraStage;
+  const isBuilderStage = stage.id === "dataset-builder";
+  const showInstructionLoop = stage.id === "instruction" || isLoraStage || isBuilderStage;
+  const builderHasTrainExamples =
+    !isBuilderStage || (selectedDataset?.train_examples || 0) > 0;
   const beforeTitle =
     stage.id === "instruction"
       ? "Before (raw GPT-2)"
       : isLoraStage
         ? "Before (frozen GPT-2)"
-        : "Before (base)";
+        : isBuilderStage
+          ? "Before (GPT-2 base)"
+          : "Before (base)";
   const afterTitle =
     stage.id === "instruction"
       ? "After (instruction SFT)"
       : isLoraStage
         ? "After (LoRA merged)"
-        : "After";
+        : isBuilderStage
+          ? "After (custom SFT)"
+          : "After";
 
   return (
     <section className="panel">
@@ -1674,7 +2020,11 @@ function TrainingView({
           className="primary-button"
           type="button"
           onClick={startTraining}
-          disabled={isStartingTraining || trainingJob?.status === "running"}
+          disabled={
+            isStartingTraining ||
+            trainingJob?.status === "running" ||
+            !builderHasTrainExamples
+          }
         >
           {isStartingTraining ? (
             <LoaderCircle aria-hidden="true" className="spin" />
@@ -1820,6 +2170,12 @@ function TrainingView({
             <span>batch {selectedDataset.recommended_batch_size}</span>
             <span>block {selectedDataset.recommended_block_size}</span>
             <span>lr {selectedDataset.recommended_learning_rate}</span>
+            {selectedDataset.train_examples !== undefined && (
+              <span>train {selectedDataset.train_examples}</span>
+            )}
+            {selectedDataset.eval_examples !== undefined && (
+              <span>eval {selectedDataset.eval_examples}</span>
+            )}
           </div>
           <div className="prompt-pair">
             <div>
@@ -1840,6 +2196,11 @@ function TrainingView({
       )}
 
       {trainingError && <div className="error-line">{trainingError}</div>}
+      {!builderHasTrainExamples && (
+        <div className="warning-line">
+          Add at least one train example before starting custom instruction training.
+        </div>
+      )}
 
       {trainingJob && (
         <div className="training-status">
@@ -1863,6 +2224,12 @@ function TrainingView({
             {trainingJob.result?.training_summary?.trainable_percent !== undefined && (
               <span>
                 trainable {trainingJob.result.training_summary.trainable_percent}%
+              </span>
+            )}
+            {trainingJob.result?.training_summary?.examples_used_for_training !== undefined && (
+              <span>
+                examples{" "}
+                {trainingJob.result.training_summary.examples_used_for_training}
               </span>
             )}
             <span>step {lastProgress?.step || 0}</span>
@@ -1917,6 +2284,7 @@ function InstructionLoopPanel({
   const datasetReady = Boolean(selectedDataset?.exists);
   const isCpuRuntime = runtimeInfo?.device === "cpu";
   const isLoraStage = stage?.id === "lora";
+  const isBuilderStage = stage?.id === "dataset-builder";
 
   return (
     <div className="instruction-loop">
@@ -1925,8 +2293,14 @@ function InstructionLoopPanel({
           <span className={datasetReady ? "state good" : "state muted"}>
             {datasetReady ? "ready" : "missing"}
           </span>
-          <h3>{isLoraStage ? "Instruction data" : "Instruction data"}</h3>
-          <p>{selectedDataset?.example_count || 0} examples</p>
+          <h3>{isBuilderStage ? "Custom data" : "Instruction data"}</h3>
+          <p>
+            {isBuilderStage
+              ? `${selectedDataset?.train_examples || 0} train / ${
+                  selectedDataset?.eval_examples || 0
+                } eval`
+              : `${selectedDataset?.example_count || 0} examples`}
+          </p>
           <button
             className="secondary-button"
             type="button"
@@ -1938,7 +2312,13 @@ function InstructionLoopPanel({
             ) : (
               <Database aria-hidden="true" />
             )}
-            {datasetReady ? "Dataset ready" : "Download dataset"}
+            {isBuilderStage
+              ? datasetReady
+                ? "Builder ready"
+                : "Create dataset"
+              : datasetReady
+                ? "Dataset ready"
+                : "Download dataset"}
           </button>
         </div>
 
@@ -1970,11 +2350,19 @@ function InstructionLoopPanel({
           <span className={runtimeInfo?.device === "cuda" ? "state good" : "state active-state"}>
             {runtimeInfo?.device === "cuda" ? "gpu" : "cpu"}
           </span>
-          <h3>{isLoraStage ? "LoRA adapters" : "Instruction SFT"}</h3>
+          <h3>
+            {isLoraStage
+              ? "LoRA adapters"
+              : isBuilderStage
+                ? "Custom SFT"
+                : "Instruction SFT"}
+          </h3>
           <p>
             {isLoraStage
               ? "Freeze GPT-2, train low-rank adapters, merge into a checkpoint."
-              : "Run training, load the checkpoint, then compare before and after."}
+              : isBuilderStage
+                ? "Only train split examples update the model; eval examples stay reserved for comparison."
+                : "Run training, load the checkpoint, then compare before and after."}
           </p>
           <span className="loop-note">runtime {formatRuntimeLabel(runtimeInfo)}</span>
         </div>
@@ -2196,6 +2584,9 @@ function ExperimentsView({
                   {experiment.trainable_percent !== undefined && (
                     <span>trainable {experiment.trainable_percent}%</span>
                   )}
+                  {experiment.examples_used_for_training !== undefined && (
+                    <span>examples {experiment.examples_used_for_training}</span>
+                  )}
                   <span>device {experiment.device || "-"}</span>
                   <span>loss {formatMaybeNumber(experiment.final_loss)}</span>
                   <span>{experiment.tokens_seen || 0} tokens seen</span>
@@ -2266,6 +2657,12 @@ function ExperimentColumn({ experiment, loadExperimentModel, loadingExperimentId
               : "-"
           }
         />
+        <Metric
+          label="Examples used"
+          value={experiment.examples_used_for_training ?? "-"}
+        />
+        <Metric label="Train split" value={experiment.train_examples ?? "-"} />
+        <Metric label="Eval split" value={experiment.eval_examples ?? "-"} />
         <Metric label="Final loss" value={formatMaybeNumber(experiment.final_loss)} />
         <Metric label="Device" value={experiment.device || "-"} />
         <Metric label="Dataset tokens" value={experiment.dataset_tokens || 0} />

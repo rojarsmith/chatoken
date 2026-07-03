@@ -31,6 +31,7 @@ from llm_core.training import (
 
 
 DEFAULT_COMPARISON_PROMPT = "Every effort moves you"
+BUILDER_DATASET_ID = "instruction-builder"
 THE_VERDICT_URL = (
     "https://raw.githubusercontent.com/rasbt/"
     "LLMs-from-scratch/main/ch02/01_main-chapter-code/the-verdict.txt"
@@ -39,6 +40,37 @@ INSTRUCTION_DATA_URL = (
     "https://raw.githubusercontent.com/rasbt/"
     "LLMs-from-scratch/main/ch07/01_main-chapter-code/instruction-data.json"
 )
+BUILDER_SEED_EXAMPLES = [
+    {
+        "split": "train",
+        "instruction": "Explain what a model checkpoint is in one sentence.",
+        "input": "",
+        "output": (
+            "A model checkpoint is a saved snapshot of model weights and "
+            "training metadata that can be loaded later."
+        ),
+    },
+    {
+        "split": "train",
+        "instruction": (
+            "Convert the active sentence to passive: The chef cooks the meal "
+            "every day."
+        ),
+        "input": "",
+        "output": "The meal is cooked by the chef every day.",
+    },
+    {
+        "split": "eval",
+        "instruction": (
+            "Summarize why splitting data into train and eval examples is useful."
+        ),
+        "input": "",
+        "output": (
+            "Train examples update the model, while eval examples help inspect "
+            "whether the model generalizes beyond the data it memorized."
+        ),
+    },
+]
 
 
 @dataclass(frozen=True)
@@ -217,9 +249,34 @@ class TrainingService:
                 ),
                 source_url=INSTRUCTION_DATA_URL,
             ),
+            BUILDER_DATASET_ID: DatasetSpec(
+                dataset_id=BUILDER_DATASET_ID,
+                tier="custom",
+                label="Dataset builder",
+                path=self._project_root / "data" / "custom" / "instruction-builder.json",
+                description="Editable instruction examples created from the Web UI.",
+                recommended_steps=20,
+                recommended_batch_size=1,
+                recommended_block_size=256,
+                recommended_learning_rate=5e-5,
+                recommended_base_model_id="gpt2-124M",
+                comparison_prompt="Explain what a model checkpoint is in one sentence.",
+                dataset_probe_prompt=(
+                    "Summarize why splitting data into train and eval examples is useful."
+                ),
+                output_model_id="gpt2-builder-finetuned",
+                training_objective="instruction-sft",
+                prompt_style="instruction",
+                learning_stage="dataset-builder",
+                learning_stage_label="Dataset Builder",
+                learning_goal=(
+                    "Build custom train/eval instruction examples before fine-tuning GPT-2."
+                ),
+            ),
         }
 
     def list_datasets(self) -> list[dict]:
+        self._ensure_dataset(self._datasets[BUILDER_DATASET_ID])
         return [self._dataset_metadata(spec) for spec in self._datasets.values()]
 
     def prepare_dataset(self, dataset_id: str) -> dict:
@@ -228,6 +285,65 @@ class TrainingService:
             raise ValueError(f"Unknown dataset_id: {dataset_id}")
         self._ensure_dataset(dataset)
         return self._dataset_metadata(dataset)
+
+    def get_builder_dataset(self) -> dict:
+        dataset = self._datasets[BUILDER_DATASET_ID]
+        self._ensure_dataset(dataset)
+        return self._builder_dataset_payload()
+
+    def seed_builder_dataset(self) -> dict:
+        dataset = self._datasets[BUILDER_DATASET_ID]
+        dataset.path.parent.mkdir(parents=True, exist_ok=True)
+        if not dataset.path.exists() or not self._read_builder_examples():
+            self._write_builder_examples(_seed_builder_examples())
+        return self._builder_dataset_payload()
+
+    def create_builder_example(self, payload: dict) -> dict:
+        self._ensure_dataset(self._datasets[BUILDER_DATASET_ID])
+        examples = self._read_builder_examples()
+        now = _utc_now()
+        examples.append(
+            _normalize_builder_example(
+                {
+                    **payload,
+                    "example_id": str(uuid4()),
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            )
+        )
+        self._write_builder_examples(examples)
+        return self._builder_dataset_payload()
+
+    def update_builder_example(self, example_id: str, payload: dict) -> dict:
+        self._ensure_dataset(self._datasets[BUILDER_DATASET_ID])
+        examples = self._read_builder_examples()
+        now = _utc_now()
+        for index, example in enumerate(examples):
+            if example["example_id"] == example_id:
+                examples[index] = _normalize_builder_example(
+                    {
+                        **example,
+                        **payload,
+                        "example_id": example_id,
+                        "created_at": example.get("created_at") or now,
+                        "updated_at": now,
+                    }
+                )
+                self._write_builder_examples(examples)
+                return self._builder_dataset_payload()
+        raise FileNotFoundError(f"Builder example not found: {example_id}")
+
+    def delete_builder_example(self, example_id: str) -> dict:
+        self._ensure_dataset(self._datasets[BUILDER_DATASET_ID])
+        examples = self._read_builder_examples()
+        next_examples = [
+            example for example in examples if example["example_id"] != example_id
+        ]
+        if len(next_examples) == len(examples):
+            raise FileNotFoundError(f"Builder example not found: {example_id}")
+        self._write_builder_examples(next_examples)
+        return self._builder_dataset_payload()
 
     def list_experiments(self) -> list[dict]:
         if not self._experiment_log.exists():
@@ -293,11 +409,13 @@ class TrainingService:
         if dataset.training_objective == "instruction-lora":
             lora_summary = apply_lora(model, LoRAConfig())
 
+        instruction_entries = None
         if dataset.training_objective in {"instruction-sft", "instruction-lora"}:
+            instruction_entries = self._read_instruction_entries(dataset)
             training_summary = train_instruction_language_model(
                 model=model,
                 tokenizer=tokenizer,
-                entries=json.loads(dataset.path.read_text(encoding="utf-8")),
+                entries=instruction_entries,
                 device=device,
                 config=training_config,
                 progress_callback=progress_callback,
@@ -323,6 +441,13 @@ class TrainingService:
         training_summary["learning_goal"] = dataset.learning_goal
         training_summary["comparison_prompt"] = request.sample_prompt
         training_summary["dataset_probe_prompt"] = dataset.dataset_probe_prompt
+        if instruction_entries is not None:
+            split_counts = _instruction_split_counts(
+                json.loads(dataset.path.read_text(encoding="utf-8"))
+            )
+            training_summary["train_examples"] = split_counts["train"]
+            training_summary["eval_examples"] = split_counts["eval"]
+            training_summary["examples_used_for_training"] = len(instruction_entries)
         training_summary["device"] = str(device)
         training_summary["cuda_available"] = torch.cuda.is_available()
         training_summary["device_name"] = (
@@ -379,6 +504,10 @@ class TrainingService:
     def _ensure_dataset(self, dataset: DatasetSpec) -> None:
         if dataset.path.exists():
             return
+        if dataset.dataset_id == BUILDER_DATASET_ID:
+            dataset.path.parent.mkdir(parents=True, exist_ok=True)
+            self._write_builder_examples(_seed_builder_examples())
+            return
         if dataset.source_url is None:
             raise FileNotFoundError(f"Dataset file not found: {dataset.path}")
 
@@ -386,6 +515,63 @@ class TrainingService:
         response = requests.get(dataset.source_url, timeout=60)
         response.raise_for_status()
         dataset.path.write_text(response.text, encoding="utf-8")
+
+    def _read_instruction_entries(self, dataset: DatasetSpec) -> list[dict]:
+        entries = json.loads(dataset.path.read_text(encoding="utf-8"))
+        if not isinstance(entries, list):
+            raise ValueError(f"Instruction dataset must be a JSON list: {dataset.path}")
+        if dataset.dataset_id != BUILDER_DATASET_ID:
+            return entries
+
+        train_entries = [
+            entry
+            for entry in entries
+            if isinstance(entry, dict) and entry.get("split", "train") == "train"
+        ]
+        if not train_entries:
+            raise ValueError(
+                "Dataset Builder needs at least one train example before training."
+            )
+        return train_entries
+
+    def _builder_dataset_payload(self) -> dict:
+        examples = self._read_builder_examples()
+        metadata = self._dataset_metadata(self._datasets[BUILDER_DATASET_ID])
+        metadata["examples"] = examples
+        metadata["train_examples"] = sum(
+            1 for example in examples if example["split"] == "train"
+        )
+        metadata["eval_examples"] = sum(
+            1 for example in examples if example["split"] == "eval"
+        )
+        return metadata
+
+    def _read_builder_examples(self) -> list[dict]:
+        dataset = self._datasets[BUILDER_DATASET_ID]
+        if not dataset.path.exists():
+            return []
+        try:
+            raw_examples = json.loads(dataset.path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Builder dataset is not valid JSON: {dataset.path}"
+            ) from exc
+        if not isinstance(raw_examples, list):
+            raise ValueError(f"Builder dataset must be a JSON list: {dataset.path}")
+        examples = []
+        for raw_example in raw_examples:
+            if isinstance(raw_example, dict):
+                examples.append(_normalize_builder_example(raw_example))
+        return examples
+
+    def _write_builder_examples(self, examples: list[dict]) -> None:
+        dataset = self._datasets[BUILDER_DATASET_ID]
+        dataset.path.parent.mkdir(parents=True, exist_ok=True)
+        normalized = [_normalize_builder_example(example) for example in examples]
+        dataset.path.write_text(
+            json.dumps(normalized, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
     def _dataset_metadata(self, spec: DatasetSpec) -> dict:
         tokenizer = ByteTokenizer()
@@ -455,6 +641,11 @@ class TrainingService:
             "trainable_parameters": training_summary.get("trainable_parameters"),
             "total_parameters": training_summary.get("total_parameters"),
             "trainable_percent": training_summary.get("trainable_percent"),
+            "train_examples": training_summary.get("train_examples"),
+            "eval_examples": training_summary.get("eval_examples"),
+            "examples_used_for_training": training_summary.get(
+                "examples_used_for_training"
+            ),
             "lora": training_summary.get("lora"),
             "device": training_summary.get("device"),
             "cuda_available": training_summary.get("cuda_available"),
@@ -484,6 +675,68 @@ def _preview_text(text: str, limit: int = 220) -> str:
     return compact[: limit - 3] + "..."
 
 
+def _seed_builder_examples() -> list[dict]:
+    now = _utc_now()
+    return [
+        _normalize_builder_example(
+            {
+                **example,
+                "example_id": str(uuid4()),
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
+        for example in BUILDER_SEED_EXAMPLES
+    ]
+
+
+def _normalize_builder_example(raw_example: dict) -> dict:
+    now = _utc_now()
+    split = str(raw_example.get("split", "train")).strip().lower()
+    if split not in {"train", "eval"}:
+        raise ValueError("Builder example split must be 'train' or 'eval'.")
+
+    instruction = str(raw_example.get("instruction", "")).strip()
+    output = str(raw_example.get("output", "")).strip()
+    input_text = str(raw_example.get("input", "")).strip()
+    if not instruction:
+        raise ValueError("Builder example instruction is required.")
+    if not output:
+        raise ValueError("Builder example output is required.")
+
+    return {
+        "example_id": str(
+            raw_example.get("example_id") or raw_example.get("id") or uuid4()
+        ),
+        "split": split,
+        "instruction": instruction,
+        "input": input_text,
+        "output": output,
+        "created_at": str(raw_example.get("created_at") or now),
+        "updated_at": str(raw_example.get("updated_at") or now),
+    }
+
+
+def _instruction_split_counts(entries: object) -> dict:
+    counts = {"train": 0, "eval": 0}
+    if not isinstance(entries, list):
+        return counts
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        split = str(entry.get("split", "train")).strip().lower()
+        if split == "eval":
+            counts["eval"] += 1
+        else:
+            counts["train"] += 1
+    return counts
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 def _instruction_dataset_metadata(text: str) -> dict:
     template = (
         "Below is an instruction that describes a task. "
@@ -499,6 +752,8 @@ def _instruction_dataset_metadata(text: str) -> dict:
             "instruction_example": None,
             "formatted_prompt_preview": "",
             "target_response_preview": "",
+            "train_examples": 0,
+            "eval_examples": 0,
         }
 
     try:
@@ -510,8 +765,11 @@ def _instruction_dataset_metadata(text: str) -> dict:
             "instruction_example": None,
             "formatted_prompt_preview": "",
             "target_response_preview": "",
+            "train_examples": 0,
+            "eval_examples": 0,
         }
 
+    split_counts = _instruction_split_counts(entries)
     example = _first_instruction_example(entries)
     if example is None:
         return {
@@ -520,6 +778,8 @@ def _instruction_dataset_metadata(text: str) -> dict:
             "instruction_example": None,
             "formatted_prompt_preview": "",
             "target_response_preview": "",
+            "train_examples": split_counts["train"],
+            "eval_examples": split_counts["eval"],
         }
 
     input_text = example.get("input", "")
@@ -534,6 +794,8 @@ def _instruction_dataset_metadata(text: str) -> dict:
         },
         "formatted_prompt_preview": formatted_prompt + "\n\n### Response:",
         "target_response_preview": example["output"],
+        "train_examples": split_counts["train"],
+        "eval_examples": split_counts["eval"],
     }
 
 

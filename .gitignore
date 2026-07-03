@@ -11,6 +11,7 @@ dist/
 models/checkpoints/
 models/downloaded/
 models/experiments/
+data/custom/
 data/external/
 *.pth
 *.pt
