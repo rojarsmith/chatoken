@@ -106,7 +106,10 @@ def train_tiny_language_model(
         drop_last=len(dataset) >= config.batch_size,
         generator=generator,
     )
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
+    trainable_parameters = [param for param in model.parameters() if param.requires_grad]
+    if not trainable_parameters:
+        raise ValueError("Training has no trainable parameters.")
+    optimizer = torch.optim.AdamW(trainable_parameters, lr=config.learning_rate)
 
     losses: list[dict] = []
     tokens_seen = 0
@@ -201,7 +204,10 @@ def train_instruction_language_model(
             device=device,
         ),
     )
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate, weight_decay=0.1)
+    trainable_parameters = [param for param in model.parameters() if param.requires_grad]
+    if not trainable_parameters:
+        raise ValueError("Training has no trainable parameters.")
+    optimizer = torch.optim.AdamW(trainable_parameters, lr=config.learning_rate, weight_decay=0.1)
 
     losses: list[dict] = []
     tokens_seen = 0

@@ -14,6 +14,13 @@ import torch
 from apps.api.services.chat_service import ChatService
 from llm_core.checkpoints import save_checkpoint
 from llm_core.generation import format_instruction_prompt
+from llm_core.lora import (
+    LoRAConfig,
+    apply_lora,
+    count_total_parameters,
+    count_trainable_parameters,
+    merge_lora_weights,
+)
 from llm_core.tokenizer import ByteTokenizer
 from llm_core.training import (
     TrainingConfig,
@@ -185,6 +192,31 @@ class TrainingService:
                 ),
                 source_url=INSTRUCTION_DATA_URL,
             ),
+            "instruction-lora": DatasetSpec(
+                dataset_id="instruction-lora",
+                tier="peft",
+                label="LoRA instruction tuning",
+                path=self._project_root / "data" / "external" / "instruction-data.json",
+                description=(
+                    "Instruction/response data with frozen GPT-2 and trainable LoRA adapters."
+                ),
+                recommended_steps=20,
+                recommended_batch_size=1,
+                recommended_block_size=256,
+                recommended_learning_rate=3e-4,
+                recommended_base_model_id="gpt2-124M",
+                comparison_prompt="Explain what a model checkpoint is in one sentence.",
+                dataset_probe_prompt="Convert the active sentence to passive: The chef cooks the meal every day.",
+                output_model_id="gpt2-instruct-lora",
+                training_objective="instruction-lora",
+                prompt_style="instruction",
+                learning_stage="lora",
+                learning_stage_label="LoRA / PEFT",
+                learning_goal=(
+                    "Freeze GPT-2 and train low-rank attention adapters."
+                ),
+                source_url=INSTRUCTION_DATA_URL,
+            ),
         }
 
     def list_datasets(self) -> list[dict]:
@@ -257,7 +289,11 @@ class TrainingService:
             sample_tokens=sample_tokens,
             seed=model_config.seed,
         )
-        if dataset.training_objective == "instruction-sft":
+        lora_summary = None
+        if dataset.training_objective == "instruction-lora":
+            lora_summary = apply_lora(model, LoRAConfig())
+
+        if dataset.training_objective in {"instruction-sft", "instruction-lora"}:
             training_summary = train_instruction_language_model(
                 model=model,
                 tokenizer=tokenizer,
@@ -292,6 +328,21 @@ class TrainingService:
         training_summary["device_name"] = (
             torch.cuda.get_device_name(0) if torch.cuda.is_available() else None
         )
+        training_summary["total_parameters"] = count_total_parameters(model)
+        training_summary["trainable_parameters"] = count_trainable_parameters(model)
+        training_summary["trainable_percent"] = round(
+            (
+                training_summary["trainable_parameters"]
+                / training_summary["total_parameters"]
+            )
+            * 100,
+            4,
+        )
+        training_summary["tuning_method"] = "lora" if lora_summary else "full"
+        if lora_summary:
+            training_summary["lora"] = lora_summary
+            training_summary["merged_lora_modules"] = merge_lora_weights(model)
+            training_summary["checkpoint_adapter_format"] = "merged-full-checkpoint"
 
         checkpoint = save_checkpoint(
             checkpoint_dir=self._checkpoint_dir,
@@ -365,7 +416,7 @@ class TrainingService:
             "learning_goal": spec.learning_goal,
             "source_url": spec.source_url,
         }
-        if spec.training_objective == "instruction-sft":
+        if spec.training_objective in {"instruction-sft", "instruction-lora"}:
             metadata.update(_instruction_dataset_metadata(text))
         return metadata
 
@@ -400,6 +451,11 @@ class TrainingService:
             "batch_size": training_summary.get("batch_size"),
             "block_size": training_summary.get("block_size"),
             "learning_rate": training_summary.get("learning_rate"),
+            "tuning_method": training_summary.get("tuning_method"),
+            "trainable_parameters": training_summary.get("trainable_parameters"),
+            "total_parameters": training_summary.get("total_parameters"),
+            "trainable_percent": training_summary.get("trainable_percent"),
+            "lora": training_summary.get("lora"),
             "device": training_summary.get("device"),
             "cuda_available": training_summary.get("cuda_available"),
             "device_name": training_summary.get("device_name"),

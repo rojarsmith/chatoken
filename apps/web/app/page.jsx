@@ -107,6 +107,30 @@ const LEARNING_STAGES = {
       training_objective: "instruction-sft",
       learning_stage: "instruction"
     }
+  },
+  lora: {
+    id: "lora",
+    label: "LoRA",
+    title: "LoRA / PEFT",
+    description: "Freeze GPT-2 and train low-rank attention adapters.",
+    datasetIds: ["instruction-lora"],
+    fallbackDataset: {
+      dataset_id: "instruction-lora",
+      tier: "peft",
+      label: "LoRA instruction tuning",
+      description: "Instruction/response examples with trainable LoRA adapters.",
+      recommended_steps: 20,
+      recommended_batch_size: 1,
+      recommended_block_size: 256,
+      recommended_learning_rate: 0.0003,
+      recommended_base_model_id: "gpt2-124M",
+      comparison_prompt: GPT2_INSTRUCTION_MESSAGE,
+      dataset_probe_prompt:
+        "Convert the active sentence to passive: The chef cooks the meal every day.",
+      output_model_id: "gpt2-instruct-lora",
+      training_objective: "instruction-lora",
+      learning_stage: "lora"
+    }
   }
 };
 
@@ -118,6 +142,7 @@ const TABS = [
   { id: "raw-text", label: "Raw Text", icon: Database },
   { id: "pretrained", label: "GPT-2", icon: Download },
   { id: "instruction", label: "Instruction", icon: SlidersHorizontal },
+  { id: "lora", label: "LoRA", icon: Layers3 },
   { id: "experiments", label: "Experiments", icon: History },
   { id: "checkpoints", label: "Checkpoints", icon: Save }
 ];
@@ -1076,8 +1101,8 @@ function ArchitectureView() {
           <div className="concept-section">
             <h3>Block order</h3>
             <ol className="concept-list">
-              {TRANSFORMER_BLOCK_STEPS.map((item) => (
-                <li key={item}>{item}</li>
+              {TRANSFORMER_BLOCK_STEPS.map((item, index) => (
+                <li key={`${index}-${item}`}>{item}</li>
               ))}
             </ol>
           </div>
@@ -1085,8 +1110,8 @@ function ArchitectureView() {
           <div className="concept-section">
             <h3>Attention order</h3>
             <ol className="concept-list">
-              {ATTENTION_STEPS.map((item) => (
-                <li key={item}>{item}</li>
+              {ATTENTION_STEPS.map((item, index) => (
+                <li key={`${index}-${item}`}>{item}</li>
               ))}
             </ol>
           </div>
@@ -1623,11 +1648,20 @@ function TrainingView({
   const gpt2Loaded = modelOptions.some(
     (model) => model.model_id === "gpt2-124M" && model.state !== "not-loaded"
   );
-  const showInstructionLoop = stage.id === "instruction";
+  const isLoraStage = stage.id === "lora";
+  const showInstructionLoop = stage.id === "instruction" || isLoraStage;
   const beforeTitle =
-    stage.id === "instruction" ? "Before (raw GPT-2)" : "Before (base)";
+    stage.id === "instruction"
+      ? "Before (raw GPT-2)"
+      : isLoraStage
+        ? "Before (frozen GPT-2)"
+        : "Before (base)";
   const afterTitle =
-    stage.id === "instruction" ? "After (instruction SFT)" : "After";
+    stage.id === "instruction"
+      ? "After (instruction SFT)"
+      : isLoraStage
+        ? "After (LoRA merged)"
+        : "After";
 
   return (
     <section className="panel">
@@ -1668,6 +1702,7 @@ function TrainingView({
           pretrainedJob={pretrainedJob}
           runtimeInfo={runtimeInfo}
           selectedDataset={selectedDataset}
+          stage={stage}
           startPretrainedDownload={startPretrainedDownload}
         />
       )}
@@ -1821,9 +1856,15 @@ function TrainingView({
 
           <div className="metrics">
             <span>base {trainingJob.request?.base_model_id || "-"}</span>
+            <span>{trainingJob.result?.training_summary?.tuning_method || "training"}</span>
             <span>
               device {trainingJob.result?.training_summary?.device || formatRuntimeLabel(runtimeInfo)}
             </span>
+            {trainingJob.result?.training_summary?.trainable_percent !== undefined && (
+              <span>
+                trainable {trainingJob.result.training_summary.trainable_percent}%
+              </span>
+            )}
             <span>step {lastProgress?.step || 0}</span>
             <span>loss {lastProgress?.loss ?? "-"}</span>
             <span>tokens {lastProgress?.tokens_seen || 0}</span>
@@ -1869,11 +1910,13 @@ function InstructionLoopPanel({
   pretrainedJob,
   runtimeInfo,
   selectedDataset,
+  stage,
   startPretrainedDownload
 }) {
   const latestPretrainedProgress = pretrainedJob?.progress?.at(-1);
   const datasetReady = Boolean(selectedDataset?.exists);
   const isCpuRuntime = runtimeInfo?.device === "cpu";
+  const isLoraStage = stage?.id === "lora";
 
   return (
     <div className="instruction-loop">
@@ -1882,7 +1925,7 @@ function InstructionLoopPanel({
           <span className={datasetReady ? "state good" : "state muted"}>
             {datasetReady ? "ready" : "missing"}
           </span>
-          <h3>Instruction data</h3>
+          <h3>{isLoraStage ? "Instruction data" : "Instruction data"}</h3>
           <p>{selectedDataset?.example_count || 0} examples</p>
           <button
             className="secondary-button"
@@ -1927,8 +1970,12 @@ function InstructionLoopPanel({
           <span className={runtimeInfo?.device === "cuda" ? "state good" : "state active-state"}>
             {runtimeInfo?.device === "cuda" ? "gpu" : "cpu"}
           </span>
-          <h3>Instruction SFT</h3>
-          <p>Run training, load the checkpoint, then compare before and after.</p>
+          <h3>{isLoraStage ? "LoRA adapters" : "Instruction SFT"}</h3>
+          <p>
+            {isLoraStage
+              ? "Freeze GPT-2, train low-rank adapters, merge into a checkpoint."
+              : "Run training, load the checkpoint, then compare before and after."}
+          </p>
           <span className="loop-note">runtime {formatRuntimeLabel(runtimeInfo)}</span>
         </div>
       </div>
@@ -1936,8 +1983,9 @@ function InstructionLoopPanel({
       {datasetPrepareError && <div className="error-line">{datasetPrepareError}</div>}
       {isCpuRuntime && (
         <div className="warning-line">
-          CPU-only runtime: GPT-2 SFT is suitable only as a short smoke test here.
-          Use a CUDA PyTorch install for reasonable training time.
+          {isLoraStage
+            ? "CPU-only runtime: LoRA trains far fewer parameters, but GPT-2 still needs forward/backward passes. CUDA is still recommended."
+            : "CPU-only runtime: GPT-2 SFT is suitable only as a short smoke test here. Use a CUDA PyTorch install for reasonable training time."}
         </div>
       )}
 
@@ -2144,6 +2192,10 @@ function ExperimentsView({
                 <div className="metrics">
                   <span>{experiment.dataset_id}</span>
                   <span>{experiment.training_objective || "text"}</span>
+                  <span>{experiment.tuning_method || "full"}</span>
+                  {experiment.trainable_percent !== undefined && (
+                    <span>trainable {experiment.trainable_percent}%</span>
+                  )}
                   <span>device {experiment.device || "-"}</span>
                   <span>loss {formatMaybeNumber(experiment.final_loss)}</span>
                   <span>{experiment.tokens_seen || 0} tokens seen</span>
@@ -2205,6 +2257,15 @@ function ExperimentColumn({ experiment, loadExperimentModel, loadingExperimentId
       <div className="metric-grid">
         <Metric label="Dataset" value={experiment.dataset_id} />
         <Metric label="Objective" value={experiment.training_objective || "text"} />
+        <Metric label="Tuning" value={experiment.tuning_method || "full"} />
+        <Metric
+          label="Trainable"
+          value={
+            experiment.trainable_percent !== undefined
+              ? `${experiment.trainable_percent}%`
+              : "-"
+          }
+        />
         <Metric label="Final loss" value={formatMaybeNumber(experiment.final_loss)} />
         <Metric label="Device" value={experiment.device || "-"} />
         <Metric label="Dataset tokens" value={experiment.dataset_tokens || 0} />

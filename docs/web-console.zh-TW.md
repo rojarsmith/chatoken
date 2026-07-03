@@ -10,6 +10,7 @@
 tiny model -> dataset ladder -> checkpoints
 the-verdict -> raw text continuation training
 GPT-2 -> instruction prompt -> optional instruction SFT
+GPT-2 -> frozen base -> LoRA adapters -> merged checkpoint
 ```
 
 ## 新增內容
@@ -22,6 +23,7 @@ GPT-2 -> instruction prompt -> optional instruction SFT
 - Raw Text view：用 The Verdict 做較大的 continuation text 訓練。
 - GPT-2 view：下載並載入 GPT-2 pretrained weights。
 - Instruction view：準備 instruction data、載入 GPT-2，然後用 instruction/response examples fine-tune。
+- LoRA view：freeze GPT-2，訓練 low-rank adapters，然後儲存 merged checkpoint。
 - Experiments view：依 objective、loss、before/after output 比較訓練紀錄。
 - Checkpoints view：列出 full checkpoints，並載入成 chat model。
 - API CORS：支援本機瀏覽器開發。
@@ -71,7 +73,9 @@ http://127.0.0.1:3000
 9. 打開 Instruction；UI 應該選到 `instruction-following`，並顯示三步驟閉環：instruction data、GPT-2 base、instruction SFT。
 10. 如果 instruction data 還不存在，按 `Download dataset`。面板接著應該顯示一筆 dataset example 和格式化後的 Chapter 7 model input。
 11. 載入 `GPT-2 small`，執行 instruction SFT，然後比較 `Before (raw GPT-2)` 和 `After (instruction SFT)`。
-12. 打開 Experiments，比較 raw pretrained GPT-2 和 instruction-tuned GPT-2。
+12. 打開 LoRA；UI 應該選到 `instruction-lora`，並顯示 LoRA adapter training。
+13. 執行 LoRA，並比較 trainable parameter percentage 和 full instruction SFT 的差異。
+14. 打開 Experiments，比較 raw pretrained GPT-2、full SFT 和 LoRA。
 
 ## 為什麼要分開
 
@@ -82,4 +86,5 @@ GPT-2 的 question/request 行為使用 Chapter 7 instruction prompt 格式。�
 資料規模階段請看 [資料規模階梯與訓練實驗記錄](dataset-ladder-experiments.zh-TW.md)。
 基礎原理階段請看 [模型基礎原理](model-foundations.zh-TW.md)。
 GPT-2 載入與 instruction prompt 請看 [GPT-2 Pretrained 與 Instruction Prompt](gpt2-pretrained.zh-TW.md)。
+LoRA 請看 [LoRA / Parameter-Efficient Fine-Tuning](lora-peft.zh-TW.md)。
 GPU 設定請看 [PyTorch GPU Runtime 設定](gpu-runtime.zh-TW.md)。

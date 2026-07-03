@@ -10,6 +10,7 @@ The console connects a small Next.js app to the FastAPI backend and keeps three 
 tiny model -> dataset ladder -> checkpoints
 the-verdict -> raw text continuation training
 GPT-2 -> instruction prompt -> optional instruction SFT
+GPT-2 -> frozen base -> LoRA adapters -> merged checkpoint
 ```
 
 ## What Was Added
@@ -22,6 +23,7 @@ GPT-2 -> instruction prompt -> optional instruction SFT
 - Raw Text view: train on The Verdict as larger continuation text.
 - GPT-2 view: download and load GPT-2 pretrained weights.
 - Instruction view: prepare instruction data, load GPT-2, then fine-tune on instruction/response examples.
+- LoRA view: freeze GPT-2, train low-rank adapters, then save a merged checkpoint.
 - Experiments view: compare saved training runs across objective, loss, and before/after output.
 - Checkpoints view: list saved full checkpoints and load one as a chat model.
 - API CORS support for local browser development.
@@ -71,7 +73,9 @@ http://127.0.0.1:3000
 9. Open Instruction; the UI should select `instruction-following` and show the three-step loop: instruction data, GPT-2 base, instruction SFT.
 10. Click `Download dataset` if the instruction data is missing. The panel should then show one dataset example and the formatted Chapter 7 model input.
 11. Load `GPT-2 small`, run instruction SFT, then compare `Before (raw GPT-2)` with `After (instruction SFT)`.
-12. Open Experiments to compare raw pretrained GPT-2 and instruction-tuned GPT-2.
+12. Open LoRA; the UI should select `instruction-lora` and show LoRA adapter training.
+13. Run LoRA and compare trainable parameter percentage against full instruction SFT.
+14. Open Experiments to compare raw pretrained GPT-2, full SFT, and LoRA.
 
 ## Why This Separation Matters
 
@@ -82,4 +86,5 @@ GPT-2 question/request behavior uses the Chapter 7 instruction prompt format. Be
 The dataset-size stage is available in [Dataset ladder and training experiments](dataset-ladder-experiments.md).
 The foundation stage is explained in [Model Foundations](model-foundations.md).
 GPT-2 loading and instruction prompts are explained in [GPT-2 Pretrained and Instruction Prompts](gpt2-pretrained.md).
+LoRA is explained in [LoRA / Parameter-Efficient Fine-Tuning](lora-peft.md).
 GPU setup is explained in [GPU Runtime Setup for PyTorch](gpu-runtime.md).
