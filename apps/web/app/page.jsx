@@ -111,6 +111,8 @@ const LEARNING_STAGES = {
 };
 
 const TABS = [
+  { id: "architecture", label: "GPT Model", icon: BrainCircuit },
+  { id: "training-knobs", label: "Training Config", icon: SlidersHorizontal },
   { id: "chat", label: "Chat", icon: Send },
   { id: "from-scratch", label: "From Scratch", icon: Activity },
   { id: "raw-text", label: "Raw Text", icon: Database },
@@ -120,12 +122,174 @@ const TABS = [
   { id: "checkpoints", label: "Checkpoints", icon: Save }
 ];
 
+const MODEL_BUILD_STEPS = [
+  {
+    label: "1. Token ids",
+    code: "in_idx",
+    detail:
+      "Text has already been tokenized. The model receives integer ids, not raw strings."
+  },
+  {
+    label: "2. Token embedding",
+    code: "tok_emb",
+    detail:
+      "Each token id becomes a learned vector. This is where discrete text enters continuous math."
+  },
+  {
+    label: "3. Position embedding",
+    code: "pos_emb",
+    detail:
+      "The same token can mean different things at different positions, so position vectors are added."
+  },
+  {
+    label: "4. Transformer blocks",
+    code: "trf_blocks",
+    detail:
+      "Repeated attention and feed-forward layers mix token information while preserving sequence shape."
+  },
+  {
+    label: "5. Final norm",
+    code: "final_norm",
+    detail:
+      "LayerNorm stabilizes the hidden states before the vocabulary prediction head."
+  },
+  {
+    label: "6. Output head",
+    code: "out_head",
+    detail:
+      "A linear layer maps each hidden vector to logits over the vocabulary."
+  }
+];
+
+const TRANSFORMER_BLOCK_STEPS = [
+  "LayerNorm before attention",
+  "Masked multi-head self-attention",
+  "Residual add",
+  "LayerNorm before feed-forward",
+  "Linear -> GELU -> Linear",
+  "Residual add"
+];
+
+const ATTENTION_STEPS = [
+  "Project x into queries, keys, and values",
+  "Split embedding channels across heads",
+  "Score query-key pairs and apply causal mask",
+  "Softmax scaled scores into attention weights",
+  "Mix values, merge heads, project output"
+];
+
+const MODEL_CONFIG_ROWS = [
+  {
+    name: "vocab_size",
+    value: "257",
+    effect: "Controls output classes. Byte tokenizer uses 256 byte values plus EOS."
+  },
+  {
+    name: "context_length",
+    value: "64",
+    effect: "Maximum tokens the model can look at in one forward pass."
+  },
+  {
+    name: "emb_dim",
+    value: "64",
+    effect: "Width of each token vector. Wider models can store richer features."
+  },
+  {
+    name: "n_heads",
+    value: "4",
+    effect: "Parallel attention views. emb_dim must divide evenly by n_heads."
+  },
+  {
+    name: "n_layers",
+    value: "2",
+    effect: "Depth of repeated TransformerBlocks. More layers usually mean more capacity."
+  },
+  {
+    name: "drop_rate",
+    value: "0.1",
+    effect: "Dropout regularization used during training."
+  }
+];
+
+const TRAINING_KNOBS = [
+  {
+    name: "max_steps",
+    valueLabel: "Steps",
+    detail:
+      "Number of optimizer updates. More steps means the model sees more batches and can fit the data more strongly.",
+    risk: "Too few steps underfit; too many steps can overfit tiny data."
+  },
+  {
+    name: "batch_size",
+    valueLabel: "Batch size",
+    detail:
+      "How many training windows are averaged into one update. Larger batches smooth loss but use more memory.",
+    risk: "On small GPUs, batch size is usually the first knob to reduce."
+  },
+  {
+    name: "block_size",
+    valueLabel: "Block size",
+    detail:
+      "Length of each training window. It must fit within model context_length.",
+    risk: "Larger blocks teach longer dependencies but increase compute and memory."
+  },
+  {
+    name: "learning_rate",
+    valueLabel: "Learning rate",
+    detail:
+      "How large each optimizer update is. It controls how aggressively weights move.",
+    risk: "Too high can make loss unstable; too low can look like no learning."
+  },
+  {
+    name: "eval_every",
+    valueLabel: "Eval every",
+    detail:
+      "How often progress is logged. It does not change learning, only observation frequency.",
+    risk: "Very frequent logging adds noise to the learning story."
+  },
+  {
+    name: "sample_prompt",
+    valueLabel: "Sample prompt",
+    detail:
+      "The fixed prompt used to compare the model before and after training.",
+    risk: "Changing prompts can hide whether a training run actually improved the same behavior."
+  },
+  {
+    name: "prompt_style",
+    valueLabel: "Prompt style",
+    detail:
+      "The wrapper around the plain message: chat, raw text, or instruction format.",
+    risk: "Prompt formatting can change output even when weights stay the same."
+  },
+  {
+    name: "stride",
+    valueLabel: "Stride",
+    detail:
+      "How far the text window moves when building TokenDataset examples.",
+    risk: "Smaller stride creates more overlapping examples; larger stride is faster but sees fewer windows."
+  },
+  {
+    name: "sample_tokens",
+    valueLabel: "Sample tokens",
+    detail:
+      "How many tokens are generated for before/after comparison after training.",
+    risk: "This changes what you inspect, not the learned weights."
+  },
+  {
+    name: "seed",
+    valueLabel: "Seed",
+    detail:
+      "Controls random initialization and shuffle order for repeatable experiments.",
+    risk: "Changing seed can change early results even with the same config."
+  }
+];
+
 export default function Home() {
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_API_BASE_URL);
   const [apiStatus, setApiStatus] = useState("checking");
   const [statusMessage, setStatusMessage] = useState("Checking API");
   const [runtimeInfo, setRuntimeInfo] = useState(null);
-  const [activeTab, setActiveTab] = useState("chat");
+  const [activeTab, setActiveTab] = useState("architecture");
   const [models, setModels] = useState([]);
   const [datasets, setDatasets] = useState([]);
   const [pretrainedModels, setPretrainedModels] = useState([]);
@@ -701,6 +865,25 @@ export default function Home() {
 
       <div className="workspace">
         <section className="main-surface">
+          {activeTab === "architecture" && <ArchitectureView />}
+
+          {activeTab === "training-knobs" && (
+            <TrainingKnobsView
+              batchSize={batchSize}
+              blockSize={blockSize}
+              evalEvery={evalEvery}
+              learningRate={learningRate}
+              openTraining={() => openTab("from-scratch")}
+              selectedDataset={selectedDataset}
+              setBatchSize={setBatchSize}
+              setBlockSize={setBlockSize}
+              setEvalEvery={setEvalEvery}
+              setLearningRate={setLearningRate}
+              setTrainingSteps={setTrainingSteps}
+              trainingSteps={trainingSteps}
+            />
+          )}
+
           {activeTab === "chat" && (
             <ChatView
               chatError={chatError}
@@ -848,6 +1031,273 @@ export default function Home() {
         </aside>
       </div>
     </main>
+  );
+}
+
+function ArchitectureView() {
+  return (
+    <div className="view-stack">
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>GPTModel From Scratch</h2>
+            <p>Local implementation path: token ids to embeddings to TransformerBlocks to logits.</p>
+          </div>
+          <span className="state good">model.py</span>
+        </div>
+
+        <div className="foundation-flow">
+          {MODEL_BUILD_STEPS.map((step) => (
+            <article className="foundation-card" key={step.code}>
+              <span className="tier-label">{step.code}</span>
+              <h3>{step.label}</h3>
+              <p>{step.detail}</p>
+            </article>
+          ))}
+        </div>
+
+        <div className="code-strip">
+          <code>tok_emb(in_idx) + pos_emb(position_ids)</code>
+          <code>trf_blocks(x)</code>
+          <code>final_norm(x)</code>
+          <code>{"out_head(x) -> logits"}</code>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>TransformerBlock Anatomy</h2>
+            <p>The block is built from explicit modules, not a black-box GPT library call.</p>
+          </div>
+        </div>
+
+        <div className="concept-columns">
+          <div className="concept-section">
+            <h3>Block order</h3>
+            <ol className="concept-list">
+              {TRANSFORMER_BLOCK_STEPS.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ol>
+          </div>
+
+          <div className="concept-section">
+            <h3>Attention order</h3>
+            <ol className="concept-list">
+              {ATTENTION_STEPS.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Tiny Config</h2>
+            <p>The first model is deliberately small so every part can be inspected.</p>
+          </div>
+          <span className="state muted">136,704 params</span>
+        </div>
+
+        <div className="metric-grid">
+          {MODEL_CONFIG_ROWS.map((row) => (
+            <Metric key={row.name} label={row.name} value={`${row.value} - ${row.effect}`} />
+          ))}
+        </div>
+
+        <div className="implementation-map">
+          <div>
+            <span>Reference learning path</span>
+            <strong>{"Chapter 3 attention -> Chapter 4 GPTModel -> Chapter 5 training loop"}</strong>
+          </div>
+          <div>
+            <span>Local model file</span>
+            <strong>packages/llm_core/llm_core/model.py</strong>
+          </div>
+          <div>
+            <span>Local training file</span>
+            <strong>packages/llm_core/llm_core/training.py</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function TrainingKnobsView({
+  batchSize,
+  blockSize,
+  evalEvery,
+  learningRate,
+  openTraining,
+  selectedDataset,
+  setBatchSize,
+  setBlockSize,
+  setEvalEvery,
+  setLearningRate,
+  setTrainingSteps,
+  trainingSteps
+}) {
+  const steps = Number(trainingSteps) || 0;
+  const batch = Number(batchSize) || 0;
+  const block = Number(blockSize) || 0;
+  const evalFrequency = Math.max(1, Number(evalEvery) || 1);
+  const lr = Number(learningRate) || 0;
+  const datasetTokens = selectedDataset?.byte_tokens || 292;
+  const tokensPerStep = batch * block;
+  const estimatedTokens = steps * tokensPerStep;
+  const textWindows = estimateTextWindows(datasetTokens, block, 1);
+  const lossSnapshots = steps > 0 ? Math.floor(steps / evalFrequency) + 1 : 0;
+  const lrStatus = learningRateStatus(lr);
+  const sampleTokens = selectedDataset?.prompt_style === "instruction" ? 80 : 24;
+
+  return (
+    <div className="view-stack">
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>TrainingConfig Playground</h2>
+            <p>Change the knobs that feed the same TrainingConfig used by the backend loop.</p>
+          </div>
+          <button className="primary-button" type="button" onClick={openTraining}>
+            <Play aria-hidden="true" />
+            Train
+          </button>
+        </div>
+
+        <div className="knob-grid">
+          <KnobControl
+            label="max_steps"
+            min="1"
+            max="400"
+            step="1"
+            value={trainingSteps}
+            onChange={setTrainingSteps}
+          />
+          <KnobControl
+            label="batch_size"
+            min="1"
+            max="16"
+            step="1"
+            value={batchSize}
+            onChange={setBatchSize}
+          />
+          <KnobControl
+            label="block_size"
+            min="8"
+            max="128"
+            step="1"
+            value={blockSize}
+            onChange={setBlockSize}
+          />
+          <KnobControl
+            label="learning_rate"
+            min="0.00001"
+            max="0.02"
+            step="0.00001"
+            value={learningRate}
+            onChange={setLearningRate}
+          />
+          <KnobControl
+            label="eval_every"
+            min="1"
+            max="100"
+            step="1"
+            value={evalEvery}
+            onChange={setEvalEvery}
+          />
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>What Changes When You Move a Knob</h2>
+            <p>These estimates make the training loop concrete before running it.</p>
+          </div>
+          <span className={`state ${lrStatus.className}`}>{lrStatus.label}</span>
+        </div>
+
+        <div className="metric-grid">
+          <Metric label="Tokens per step" value={formatNumber(tokensPerStep)} />
+          <Metric label="Estimated tokens seen" value={formatNumber(estimatedTokens)} />
+          <Metric label="Text windows at stride 1" value={formatNumber(textWindows)} />
+          <Metric label="Loss snapshots" value={formatNumber(lossSnapshots)} />
+          <Metric label="Dataset tokens" value={formatNumber(datasetTokens)} />
+          <Metric label="Sample tokens" value={sampleTokens} />
+        </div>
+
+        <div className="implementation-map">
+          <div>
+            <span>Optimizer update</span>
+            <strong>{"zero_grad -> forward -> cross_entropy -> backward -> AdamW step"}</strong>
+          </div>
+          <div>
+            <span>Data shape</span>
+            <strong>batch_size x block_size token ids become logits for next-token prediction</strong>
+          </div>
+          <div>
+            <span>Loss meaning</span>
+            <strong>Lower loss means the model is assigning higher probability to target next tokens.</strong>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>TrainingConfig Reference</h2>
+            <p>Every parameter below maps to `packages/llm_core/llm_core/training.py`.</p>
+          </div>
+        </div>
+
+        <div className="foundation-flow">
+          {TRAINING_KNOBS.map((knob) => (
+            <article className="foundation-card" key={knob.name}>
+              <span className="tier-label">{knob.name}</span>
+              <h3>{knob.valueLabel}</h3>
+              <p>{knob.detail}</p>
+              <strong>{configValueForKnob(knob.name, {
+                batchSize,
+                blockSize,
+                evalEvery,
+                learningRate,
+                sampleTokens,
+                trainingSteps
+              })}</strong>
+              <p>{knob.risk}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function KnobControl({ label, min, max, onChange, step, value }) {
+  return (
+    <label className="knob-control">
+      <span>{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
   );
 }
 
@@ -1933,6 +2383,39 @@ function formatNumber(value) {
     return "-";
   }
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function estimateTextWindows(tokenCount, blockSize, stride) {
+  if (!tokenCount || !blockSize || tokenCount <= blockSize) {
+    return 0;
+  }
+  return Math.floor((tokenCount - blockSize - 1) / Math.max(1, stride)) + 1;
+}
+
+function learningRateStatus(value) {
+  if (value >= 0.01) {
+    return { className: "bad", label: "lr high" };
+  }
+  if (value <= 0.00001) {
+    return { className: "active-state", label: "lr very low" };
+  }
+  return { className: "good", label: "lr moderate" };
+}
+
+function configValueForKnob(name, values) {
+  const map = {
+    max_steps: values.trainingSteps,
+    batch_size: values.batchSize,
+    block_size: values.blockSize,
+    stride: 1,
+    learning_rate: values.learningRate,
+    eval_every: values.evalEvery,
+    sample_prompt: "dataset comparison prompt",
+    prompt_style: "dataset selected style",
+    sample_tokens: values.sampleTokens,
+    seed: 123
+  };
+  return `current: ${map[name] ?? "set by dataset"}`;
 }
 
 function formatRuntimeLabel(runtimeInfo) {
