@@ -12,6 +12,7 @@ the-verdict -> raw text continuation training
 GPT-2 -> instruction prompt -> optional instruction SFT
 GPT-2 -> frozen base -> LoRA adapters -> merged checkpoint
 custom instruction examples -> train/eval split -> custom SFT
+checkpoint versions -> experiment comparison -> model selection
 ```
 
 ## 新增內容
@@ -26,8 +27,8 @@ custom instruction examples -> train/eval split -> custom SFT
 - Instruction view：準備 instruction data、載入 GPT-2，然後用 instruction/response examples fine-tune。
 - LoRA view：freeze GPT-2，訓練 low-rank adapters，然後儲存 merged checkpoint。
 - Dataset Builder view：建立本機 instruction examples，切分 train/eval，然後訓練 custom SFT。
-- Experiments view：依 objective、loss、before/after output 比較訓練紀錄。
-- Checkpoints view：列出 full checkpoints，並載入成 chat model。
+- Experiments view：依 version、objective、loss delta、before/after output 比較訓練紀錄。
+- Checkpoints view：檢視 model versions、lineage、training config，並載入成 chat model。
 - API CORS：支援本機瀏覽器開發。
 
 ## 啟動 API
@@ -80,6 +81,8 @@ http://127.0.0.1:3000
 14. 打開 Dataset Builder；檢視種子資料，新增一筆 `train` 範例與一筆 `eval` 範例。
 15. 使用 `instruction-builder` 執行 custom SFT，並比較 `Before (GPT-2 base)` 與 `After (custom SFT)`。
 16. 打開 Experiments，比較 raw pretrained GPT-2、full SFT、LoRA 和 custom SFT。
+17. 先讀 comparison summary，再讀 generated samples。
+18. 打開 Checkpoints，檢視 model version lineage 並載入指定版本。
 
 ## 為什麼要分開
 
@@ -92,4 +95,5 @@ GPT-2 的 question/request 行為使用 Chapter 7 instruction prompt 格式。�
 GPT-2 載入與 instruction prompt 請看 [GPT-2 Pretrained 與 Instruction Prompt](gpt2-pretrained.zh-TW.md)。
 LoRA 請看 [LoRA / Parameter-Efficient Fine-Tuning](lora-peft.zh-TW.md)。
 Dataset Builder 請看 [訓練資料管理與 Dataset Builder](dataset-builder.zh-TW.md)。
+模型版本請看 [模型版本與實驗比較強化](model-version-experiment-comparison.zh-TW.md)。
 GPU 設定請看 [PyTorch GPU Runtime 設定](gpu-runtime.zh-TW.md)。

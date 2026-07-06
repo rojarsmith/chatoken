@@ -881,6 +881,79 @@ button:focus-visible {
   gap: 14px;
 }
 
+.comparison-summary {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.comparison-summary-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.comparison-summary-heading h3,
+.comparison-summary-heading p {
+  margin: 0;
+}
+
+.comparison-summary-heading p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.comparison-flags,
+.comparison-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.delta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.delta-cell {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px;
+}
+
+.delta-cell span,
+.delta-cell small,
+.comparison-notes span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.delta-cell strong {
+  font-size: 1rem;
+}
+
+.delta-cell.good strong {
+  color: var(--green);
+}
+
+.delta-cell.bad strong {
+  color: var(--red);
+}
+
+.delta-cell.changed strong {
+  color: var(--amber);
+}
+
 .training-status {
   margin-top: 18px;
 }
@@ -965,6 +1038,21 @@ button:focus-visible {
   overflow-wrap: anywhere;
   margin: 6px 0 10px;
   font-size: 0.86rem;
+}
+
+.version-lineage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 10px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.version-lineage strong {
+  color: var(--text);
 }
 
 .experiment-row {
@@ -1107,6 +1195,7 @@ button:focus-visible {
   .loop-grid,
   .compare-controls,
   .comparison-grid,
+  .delta-grid,
   .experiment-controls,
   .experiment-row,
   .builder-example-fields,
@@ -1130,6 +1219,10 @@ button:focus-visible {
 
   .panel-heading {
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .comparison-summary-heading {
     flex-direction: column;
   }
 

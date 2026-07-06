@@ -6,7 +6,12 @@ from threading import Lock
 
 import torch
 
-from llm_core.checkpoints import find_checkpoint, list_checkpoints, load_checkpoint
+from llm_core.checkpoints import (
+    checkpoint_metadata,
+    find_checkpoint,
+    list_checkpoints,
+    load_checkpoint,
+)
 from llm_core.configs import MODEL_CONFIGS, ModelConfig
 from llm_core.generation import generate, prepare_chat_prompt
 from llm_core.model import GPTModel, count_parameters
@@ -73,6 +78,7 @@ class ChatService:
     def load_checkpoint_model(self, checkpoint_id: str, model_id: str | None = None) -> dict:
         checkpoint_path = find_checkpoint(self._checkpoint_dir, checkpoint_id)
         payload = load_checkpoint(checkpoint_path, map_location="cpu")
+        metadata = checkpoint_metadata(checkpoint_path, payload)
         loaded_model_id = model_id or payload["model_id"]
         config_data = dict(payload["model_config"])
         config_data["name"] = loaded_model_id
@@ -95,6 +101,9 @@ class ChatService:
             "checkpoint_id": checkpoint_id,
             "device": str(device),
             "state": "loaded-checkpoint",
+            "version": metadata.get("version"),
+            "version_id": metadata.get("version_id"),
+            "version_label": metadata.get("version_label"),
         }
 
     def register_model(

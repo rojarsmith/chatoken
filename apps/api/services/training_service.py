@@ -361,6 +361,19 @@ class TrainingService:
                     continue
         return list(reversed(experiments))
 
+    def compare_experiments(self, left_id: str, right_id: str) -> dict:
+        experiments = {
+            experiment["experiment_id"]: experiment
+            for experiment in self.list_experiments()
+        }
+        left = experiments.get(left_id)
+        right = experiments.get(right_id)
+        if left is None:
+            raise FileNotFoundError(f"Experiment not found: {left_id}")
+        if right is None:
+            raise FileNotFoundError(f"Experiment not found: {right_id}")
+        return _compare_experiments(left, right)
+
     def train(
         self,
         request: TrainingRequestData,
@@ -439,6 +452,18 @@ class TrainingService:
         training_summary["learning_stage"] = dataset.learning_stage
         training_summary["learning_stage_label"] = dataset.learning_stage_label
         training_summary["learning_goal"] = dataset.learning_goal
+        training_summary["base_model_id"] = request.base_model_id
+        training_summary["output_model_id"] = request.output_model_id
+        training_summary["eval_every"] = request.eval_every
+        training_summary["seed"] = model_config.seed
+        training_summary["training_config"] = {
+            "max_steps": request.max_steps,
+            "batch_size": request.batch_size,
+            "block_size": request.block_size,
+            "learning_rate": request.learning_rate,
+            "eval_every": request.eval_every,
+            "seed": model_config.seed,
+        }
         training_summary["comparison_prompt"] = request.sample_prompt
         training_summary["dataset_probe_prompt"] = dataset.dataset_probe_prompt
         if instruction_entries is not None:
@@ -632,11 +657,19 @@ class TrainingService:
             "output_model_id": request.output_model_id,
             "checkpoint_id": checkpoint["checkpoint_id"],
             "checkpoint_path": checkpoint["path"],
+            "checkpoint_size_bytes": checkpoint.get("size_bytes"),
+            "model_version": checkpoint.get("version"),
+            "model_version_id": checkpoint.get("version_id"),
+            "model_version_label": checkpoint.get("version_label"),
+            "lineage": checkpoint.get("lineage"),
             "loaded_model_id": loaded_model["model_id"] if loaded_model else None,
             "max_steps": training_summary.get("max_steps"),
             "batch_size": training_summary.get("batch_size"),
             "block_size": training_summary.get("block_size"),
             "learning_rate": training_summary.get("learning_rate"),
+            "eval_every": training_summary.get("eval_every"),
+            "seed": training_summary.get("seed"),
+            "training_config": training_summary.get("training_config"),
             "tuning_method": training_summary.get("tuning_method"),
             "trainable_parameters": training_summary.get("trainable_parameters"),
             "total_parameters": training_summary.get("total_parameters"),
@@ -666,6 +699,119 @@ class TrainingService:
             with self._experiment_log.open("a", encoding="utf-8") as file:
                 file.write(json.dumps(experiment, ensure_ascii=False) + "\n")
         return experiment
+
+
+def _compare_experiments(left: dict, right: dict) -> dict:
+    same = {
+        "prompt": (
+            (left.get("comparison_prompt") or left.get("sample_prompt"))
+            == (right.get("comparison_prompt") or right.get("sample_prompt"))
+        ),
+        "dataset": left.get("dataset_id") == right.get("dataset_id"),
+        "base_model": left.get("base_model_id") == right.get("base_model_id"),
+        "objective": left.get("training_objective")
+        == right.get("training_objective"),
+        "tuning": (left.get("tuning_method") or "full")
+        == (right.get("tuning_method") or "full"),
+    }
+    deltas = {
+        "final_loss": _metric_delta(left, right, "final_loss", prefer="lower"),
+        "tokens_seen": _metric_delta(left, right, "tokens_seen"),
+        "max_steps": _metric_delta(left, right, "max_steps"),
+        "dataset_tokens": _metric_delta(left, right, "dataset_tokens"),
+        "trainable_percent": _metric_delta(left, right, "trainable_percent"),
+        "examples_used_for_training": _metric_delta(
+            left,
+            right,
+            "examples_used_for_training",
+        ),
+    }
+    return {
+        "left_id": left.get("experiment_id"),
+        "right_id": right.get("experiment_id"),
+        "left_version": _experiment_version(left),
+        "right_version": _experiment_version(right),
+        "same": same,
+        "deltas": deltas,
+        "notes": _comparison_notes(same, deltas),
+    }
+
+
+def _experiment_version(experiment: dict) -> dict:
+    return {
+        "model_id": experiment.get("output_model_id"),
+        "checkpoint_id": experiment.get("checkpoint_id"),
+        "version_id": experiment.get("model_version_id"),
+        "version_label": experiment.get("model_version_label"),
+        "lineage": experiment.get("lineage"),
+    }
+
+
+def _metric_delta(
+    left: dict,
+    right: dict,
+    key: str,
+    *,
+    prefer: str | None = None,
+) -> dict:
+    left_value = _as_number(left.get(key))
+    right_value = _as_number(right.get(key))
+    if left_value is None or right_value is None:
+        return {
+            "left": left.get(key),
+            "right": right.get(key),
+            "delta": None,
+            "status": "unknown",
+        }
+
+    delta = right_value - left_value
+    status = "same"
+    if delta != 0:
+        status = "changed"
+        if prefer == "lower":
+            status = "better" if delta < 0 else "worse"
+        elif prefer == "higher":
+            status = "better" if delta > 0 else "worse"
+
+    return {
+        "left": left_value,
+        "right": right_value,
+        "delta": delta,
+        "status": status,
+    }
+
+
+def _comparison_notes(same: dict, deltas: dict) -> list[str]:
+    notes = []
+    notes.append(
+        "The comparison prompt matches."
+        if same["prompt"]
+        else "The comparison prompts differ; output comparison is less controlled."
+    )
+    if not same["dataset"]:
+        notes.append("The two runs used different datasets.")
+    if not same["base_model"]:
+        notes.append("The two runs started from different base models.")
+    if not same["tuning"]:
+        notes.append("The two runs used different tuning methods.")
+
+    loss_status = deltas["final_loss"]["status"]
+    if loss_status == "better":
+        notes.append("The right experiment has lower final loss.")
+    elif loss_status == "worse":
+        notes.append("The right experiment has higher final loss.")
+    return notes
+
+
+def _as_number(value: object) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(str(value))
+    except ValueError:
+        return None
 
 
 def _preview_text(text: str, limit: int = 220) -> str:

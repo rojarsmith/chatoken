@@ -174,6 +174,7 @@ npm run dev
 - [GPT-2 Pretrained and Instruction Prompts](docs/gpt2-pretrained.md)
 - [LoRA / Parameter-Efficient Fine-Tuning](docs/lora-peft.md)
 - [Training Data Management and Dataset Builder](docs/dataset-builder.md)
+- [Model Versions and Experiment Comparison](docs/model-version-experiment-comparison.md)
 - [GPU Runtime Setup for PyTorch](docs/gpu-runtime.md)
 - [`smoke_train.py` 繁體中文說明](docs/smoke-train.zh-TW.md)
 - [繁體中文學習驗證清單](docs/learning-experience.zh-TW.md)
@@ -185,4 +186,5 @@ npm run dev
 - [GPT-2 Pretrained 與 Instruction Prompt](docs/gpt2-pretrained.zh-TW.md)
 - [LoRA / Parameter-Efficient Fine-Tuning](docs/lora-peft.zh-TW.md)
 - [訓練資料管理與 Dataset Builder](docs/dataset-builder.zh-TW.md)
+- [模型版本與實驗比較強化](docs/model-version-experiment-comparison.zh-TW.md)
 - [PyTorch GPU Runtime 設定](docs/gpu-runtime.zh-TW.md)

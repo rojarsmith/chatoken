@@ -470,6 +470,10 @@ export default function Home() {
     left: experimentsById.get(experimentLeftId),
     right: experimentsById.get(experimentRightId)
   };
+  const experimentComparison = useMemo(
+    () => buildExperimentComparison(experimentPair.left, experimentPair.right),
+    [experimentPair.left, experimentPair.right]
+  );
 
   useEffect(() => {
     const stored = window.localStorage.getItem("llm-abc-api-base-url");
@@ -1143,6 +1147,7 @@ export default function Home() {
           {activeTab === "experiments" && (
             <ExperimentsView
               experimentError={experimentError}
+              experimentComparison={experimentComparison}
               experimentLeftId={experimentLeftId}
               experimentPair={experimentPair}
               experimentRightId={experimentRightId}
@@ -2475,6 +2480,7 @@ function DatasetLadder({ datasetId, datasets, selectDataset }) {
 
 function ExperimentsView({
   experimentError,
+  experimentComparison,
   experimentLeftId,
   experimentPair,
   experimentRightId,
@@ -2544,6 +2550,8 @@ function ExperimentsView({
               </label>
             </div>
 
+            <ExperimentCompareSummary comparison={experimentComparison} />
+
             <div className="comparison-grid">
               <ExperimentColumn
                 experiment={experimentPair.left}
@@ -2579,6 +2587,9 @@ function ExperimentsView({
                 <p>{experiment.checkpoint_id}</p>
                 <div className="metrics">
                   <span>{experiment.dataset_id}</span>
+                  {experiment.model_version_label && (
+                    <span>{experiment.model_version_label}</span>
+                  )}
                   <span>{experiment.training_objective || "text"}</span>
                   <span>{experiment.tuning_method || "full"}</span>
                   {experiment.trainable_percent !== undefined && (
@@ -2610,6 +2621,59 @@ function ExperimentsView({
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+function ExperimentCompareSummary({ comparison }) {
+  if (!comparison) {
+    return null;
+  }
+
+  const flags = [
+    { label: "Prompt", value: comparison.same.prompt },
+    { label: "Dataset", value: comparison.same.dataset },
+    { label: "Base", value: comparison.same.baseModel },
+    { label: "Objective", value: comparison.same.objective },
+    { label: "Tuning", value: comparison.same.tuning }
+  ];
+
+  return (
+    <div className="comparison-summary">
+      <div className="comparison-summary-heading">
+        <div>
+          <h3>Comparison Summary</h3>
+          <p>Right experiment minus left experiment.</p>
+        </div>
+        <div className="comparison-flags">
+          {flags.map((flag) => (
+            <span
+              className={flag.value ? "state good" : "state active-state"}
+              key={flag.label}
+            >
+              {flag.label} {flag.value ? "same" : "diff"}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="delta-grid">
+        {comparison.deltas.map((delta) => (
+          <div className={`delta-cell ${delta.status}`} key={delta.key}>
+            <span>{delta.label}</span>
+            <strong>{formatDelta(delta.delta)}</strong>
+            <small>
+              {formatMaybeNumber(delta.left)} {"->"} {formatMaybeNumber(delta.right)}
+            </small>
+          </div>
+        ))}
+      </div>
+
+      <div className="comparison-notes">
+        {comparison.notes.map((note) => (
+          <span key={note}>{note}</span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -2646,6 +2710,12 @@ function ExperimentColumn({ experiment, loadExperimentModel, loadingExperimentId
       </div>
 
       <div className="metric-grid">
+        <Metric
+          label="Version"
+          value={experiment.model_version_label || experiment.model_version_id || "-"}
+        />
+        <Metric label="Base model" value={experiment.base_model_id || "-"} />
+        <Metric label="Checkpoint" value={experiment.checkpoint_id || "-"} />
         <Metric label="Dataset" value={experiment.dataset_id} />
         <Metric label="Objective" value={experiment.training_objective || "text"} />
         <Metric label="Tuning" value={experiment.tuning_method || "full"} />
@@ -2714,8 +2784,8 @@ function CheckpointView({
     <section className="panel">
       <div className="panel-heading">
         <div>
-          <h2>Checkpoints</h2>
-          <p>Load saved full model snapshots.</p>
+          <h2>Model Versions</h2>
+          <p>Inspect checkpoint lineage, training config, and saved metrics.</p>
         </div>
         <button className="secondary-button" type="button" onClick={refreshAll}>
           <RefreshCw aria-hidden="true" />
@@ -2733,32 +2803,49 @@ function CheckpointView({
           </div>
         )}
 
-        {checkpoints.map((checkpoint) => (
-          <article className="checkpoint-row" key={checkpoint.checkpoint_id}>
-            <div>
-              <h3>{checkpoint.model_id}</h3>
-              <p>{checkpoint.checkpoint_id}</p>
-              <div className="metrics">
-                <span>base {checkpoint.base_model_id}</span>
-                <span>loss {checkpoint.training_summary?.final_loss ?? "-"}</span>
-                <span>tokens {checkpoint.training_summary?.tokens_seen ?? "-"}</span>
+        {checkpoints.map((checkpoint) => {
+          const summary = checkpoint.training_summary || {};
+          const lineage = checkpoint.lineage || {};
+          const runConfig = checkpoint.run_config || {};
+          return (
+            <article className="checkpoint-row" key={checkpoint.checkpoint_id}>
+              <div>
+                <h3>{checkpoint.version_label || checkpoint.model_id}</h3>
+                <p>{checkpoint.checkpoint_id}</p>
+                <div className="version-lineage">
+                  <span>{lineage.parent_model_id || checkpoint.base_model_id}</span>
+                  <strong>{"->"}</strong>
+                  <span>{lineage.model_id || checkpoint.model_id}</span>
+                </div>
+                <div className="metrics">
+                  <span>version {checkpoint.version_id || "-"}</span>
+                  <span>model {checkpoint.model_id}</span>
+                  <span>dataset {runConfig.dataset_id || summary.dataset_id || "-"}</span>
+                  <span>{runConfig.training_objective || summary.training_objective || "text"}</span>
+                  <span>{runConfig.tuning_method || summary.tuning_method || "full"}</span>
+                  <span>loss {formatMaybeNumber(summary.final_loss)}</span>
+                  <span>tokens {summary.tokens_seen ?? "-"}</span>
+                  <span>steps {runConfig.max_steps || summary.max_steps || "-"}</span>
+                  <span>lr {runConfig.learning_rate || summary.learning_rate || "-"}</span>
+                  <span>{formatBytes(checkpoint.size_bytes)}</span>
+                </div>
               </div>
-            </div>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => loadCheckpoint(checkpoint)}
-              disabled={loadingCheckpointId === checkpoint.checkpoint_id}
-            >
-              {loadingCheckpointId === checkpoint.checkpoint_id ? (
-                <LoaderCircle aria-hidden="true" className="spin" />
-              ) : (
-                <SlidersHorizontal aria-hidden="true" />
-              )}
-              Load
-            </button>
-          </article>
-        ))}
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => loadCheckpoint(checkpoint)}
+                disabled={loadingCheckpointId === checkpoint.checkpoint_id}
+              >
+                {loadingCheckpointId === checkpoint.checkpoint_id ? (
+                  <LoaderCircle aria-hidden="true" className="spin" />
+                ) : (
+                  <SlidersHorizontal aria-hidden="true" />
+                )}
+                Load
+              </button>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -2817,9 +2904,99 @@ function resultFromSettled(result) {
   return { error: result.reason.message };
 }
 
+function buildExperimentComparison(left, right) {
+  if (!left || !right) {
+    return null;
+  }
+
+  const same = {
+    prompt:
+      (left.comparison_prompt || left.sample_prompt) ===
+      (right.comparison_prompt || right.sample_prompt),
+    dataset: left.dataset_id === right.dataset_id,
+    baseModel: left.base_model_id === right.base_model_id,
+    objective: left.training_objective === right.training_objective,
+    tuning: (left.tuning_method || "full") === (right.tuning_method || "full")
+  };
+  const deltas = [
+    metricDelta(left, right, "final_loss", "Final loss", "lower"),
+    metricDelta(left, right, "tokens_seen", "Tokens seen"),
+    metricDelta(left, right, "max_steps", "Steps"),
+    metricDelta(left, right, "dataset_tokens", "Dataset tokens"),
+    metricDelta(left, right, "trainable_percent", "Trainable %"),
+    metricDelta(left, right, "examples_used_for_training", "Examples")
+  ];
+  const notes = [
+    same.prompt
+      ? "Prompt is controlled."
+      : "Prompt differs; output comparison is less controlled."
+  ];
+  if (!same.dataset) {
+    notes.push("Datasets differ.");
+  }
+  if (!same.baseModel) {
+    notes.push("Base models differ.");
+  }
+  if (!same.tuning) {
+    notes.push("Tuning methods differ.");
+  }
+  const lossStatus = deltas[0].status;
+  if (lossStatus === "good") {
+    notes.push("Right final loss is lower.");
+  } else if (lossStatus === "bad") {
+    notes.push("Right final loss is higher.");
+  }
+
+  return { same, deltas, notes };
+}
+
+function metricDelta(left, right, key, label, prefer) {
+  const leftValue = toNumber(left[key]);
+  const rightValue = toNumber(right[key]);
+  if (leftValue === null || rightValue === null) {
+    return {
+      key,
+      label,
+      left: left[key],
+      right: right[key],
+      delta: null,
+      status: "unknown"
+    };
+  }
+
+  const delta = rightValue - leftValue;
+  let status = delta === 0 ? "same" : "changed";
+  if (prefer === "lower" && delta !== 0) {
+    status = delta < 0 ? "good" : "bad";
+  }
+  if (prefer === "higher" && delta !== 0) {
+    status = delta > 0 ? "good" : "bad";
+  }
+
+  return { key, label, left: leftValue, right: rightValue, delta, status };
+}
+
+function toNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatDelta(value) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  const prefix = value > 0 ? "+" : "";
+  const formatted = Number.isInteger(value) ? value : value.toFixed(4);
+  return `${prefix}${formatted}`;
+}
+
 function experimentLabel(experiment) {
   const loss = formatMaybeNumber(experiment.final_loss);
-  return `${experiment.dataset_tier}/${experiment.output_model_id} loss ${loss}`;
+  const version = experiment.model_version_label || experiment.output_model_id;
+  return `${experiment.dataset_tier}/${version} loss ${loss}`;
 }
 
 function formatText(value) {

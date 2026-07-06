@@ -12,6 +12,7 @@ the-verdict -> raw text continuation training
 GPT-2 -> instruction prompt -> optional instruction SFT
 GPT-2 -> frozen base -> LoRA adapters -> merged checkpoint
 custom instruction examples -> train/eval split -> custom SFT
+checkpoint versions -> experiment comparison -> model selection
 ```
 
 ## What Was Added
@@ -26,8 +27,8 @@ custom instruction examples -> train/eval split -> custom SFT
 - Instruction view: prepare instruction data, load GPT-2, then fine-tune on instruction/response examples.
 - LoRA view: freeze GPT-2, train low-rank adapters, then save a merged checkpoint.
 - Dataset Builder view: create local instruction examples, split them into train/eval, then train custom SFT.
-- Experiments view: compare saved training runs across objective, loss, and before/after output.
-- Checkpoints view: list saved full checkpoints and load one as a chat model.
+- Experiments view: compare saved training runs across version, objective, loss delta, and before/after output.
+- Checkpoints view: inspect model versions, lineage, training config, and load one as a chat model.
 - API CORS support for local browser development.
 
 ## Run the API
@@ -80,6 +81,8 @@ http://127.0.0.1:3000
 14. Open Dataset Builder; inspect seeded examples, add a `train` example, and add an `eval` example.
 15. Run custom SFT with `instruction-builder` and compare `Before (GPT-2 base)` with `After (custom SFT)`.
 16. Open Experiments to compare raw pretrained GPT-2, full SFT, LoRA, and custom SFT.
+17. Read the comparison summary before reading generated samples.
+18. Open Checkpoints to inspect model version lineage and load a specific version.
 
 ## Why This Separation Matters
 
@@ -92,4 +95,5 @@ The foundation stage is explained in [Model Foundations](model-foundations.md).
 GPT-2 loading and instruction prompts are explained in [GPT-2 Pretrained and Instruction Prompts](gpt2-pretrained.md).
 LoRA is explained in [LoRA / Parameter-Efficient Fine-Tuning](lora-peft.md).
 Dataset Builder is explained in [Training Data Management and Dataset Builder](dataset-builder.md).
+Model versioning is explained in [Model Versions and Experiment Comparison](model-version-experiment-comparison.md).
 GPU setup is explained in [GPU Runtime Setup for PyTorch](gpu-runtime.md).

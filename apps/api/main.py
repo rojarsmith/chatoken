@@ -298,6 +298,14 @@ def list_training_experiments() -> list[dict]:
     return training_service.list_experiments()
 
 
+@app.get("/training/experiments/compare")
+def compare_training_experiments(left_id: str, right_id: str) -> dict:
+    try:
+        return training_service.compare_experiments(left_id, right_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @app.post("/training/jobs")
 def create_training_job(request: TrainingRequest) -> dict:
     job_id = str(uuid4())
