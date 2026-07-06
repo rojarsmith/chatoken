@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from concurrent.futures import CancelledError
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
+from typing import Callable, Iterator
 
 import torch
 
@@ -13,7 +15,7 @@ from llm_core.checkpoints import (
     load_checkpoint,
 )
 from llm_core.configs import MODEL_CONFIGS, ModelConfig
-from llm_core.generation import generate, prepare_chat_prompt
+from llm_core.generation import prepare_chat_prompt
 from llm_core.model import GPTModel, count_parameters
 from llm_core.tokenizer import Tokenizer, tokenizer_for_name
 
@@ -154,6 +156,19 @@ class ChatService:
         )
 
     def generate_reply(self, request: ChatRequestData) -> dict:
+        result = None
+        for event in self.stream_reply(request):
+            if event["event"] == "done":
+                result = event["result"]
+        if result is None:
+            raise RuntimeError("Chat generation produced no result.")
+        return result
+
+    def stream_reply(
+        self,
+        request: ChatRequestData,
+        should_cancel: Callable[[], bool] | None = None,
+    ) -> Iterator[dict]:
         loaded = self._get_model(request.model_id)
         prompt = prepare_chat_prompt(request.message, loaded.config.prompt_style)
         input_ids = loaded.tokenizer.encode(prompt)
@@ -161,34 +176,83 @@ class ChatService:
             input_ids = [loaded.tokenizer.eos_id]
 
         idx = torch.tensor(input_ids, dtype=torch.long, device=loaded.device).unsqueeze(0)
+        generated_ids: list[int] = []
+        full_reply = ""
 
-        with self._locks[request.model_id]:
-            output = generate(
-                model=loaded.model,
-                idx=idx,
-                max_new_tokens=request.max_new_tokens,
-                context_size=loaded.config.context_length,
-                temperature=request.temperature,
-                top_k=request.top_k,
-                eos_id=loaded.tokenizer.eos_id,
-            )
-
-        output_ids = output.squeeze(0).tolist()
-        generated_ids = output_ids[len(input_ids) :]
-        reply = _clean_reply(
-            loaded.tokenizer.decode(generated_ids),
-            prompt_style=loaded.config.prompt_style,
-        )
-        full_text = loaded.tokenizer.decode(output_ids)
-
-        return {
+        yield {
+            "event": "start",
             "model_id": request.model_id,
             "prompt": prompt,
-            "reply": full_text if request.include_prompt else reply,
+            "prompt_tokens": len(input_ids),
+            "tokens_generated": 0,
+        }
+
+        with self._locks[request.model_id]:
+            loaded.model.eval()
+            for token_index in range(request.max_new_tokens):
+                if should_cancel is not None and should_cancel():
+                    raise CancelledError("Chat generation cancelled.")
+
+                idx_cond = idx[:, -loaded.config.context_length :]
+                with torch.no_grad():
+                    logits = loaded.model(idx_cond)
+
+                logits = logits[:, -1, :]
+                if request.top_k is not None:
+                    top_logits, _ = torch.topk(
+                        logits,
+                        min(request.top_k, logits.shape[-1]),
+                    )
+                    min_val = top_logits[:, -1]
+                    logits = torch.where(
+                        logits < min_val,
+                        torch.tensor(float("-inf"), device=logits.device),
+                        logits,
+                    )
+
+                if request.temperature > 0.0:
+                    logits = logits / request.temperature
+                    probs = torch.softmax(logits, dim=-1)
+                    idx_next = torch.multinomial(probs, num_samples=1)
+                else:
+                    idx_next = torch.argmax(logits, dim=-1, keepdim=True)
+
+                token_id = int(idx_next.item())
+                if loaded.tokenizer.eos_id is not None and token_id == loaded.tokenizer.eos_id:
+                    break
+
+                idx = torch.cat((idx, idx_next), dim=1)
+                generated_ids.append(token_id)
+                next_reply = _clean_reply(
+                    loaded.tokenizer.decode(generated_ids),
+                    prompt_style=loaded.config.prompt_style,
+                )
+                delta = next_reply[len(full_reply) :]
+                full_reply = next_reply
+                full_text = loaded.tokenizer.decode(input_ids + generated_ids)
+
+                yield {
+                    "event": "token",
+                    "model_id": request.model_id,
+                    "token_index": token_index,
+                    "token_id": token_id,
+                    "delta": delta,
+                    "reply": full_reply,
+                    "full_text": full_text,
+                    "tokens_generated": len(generated_ids),
+                }
+
+        full_text = loaded.tokenizer.decode(input_ids + generated_ids)
+        result = {
+            "model_id": request.model_id,
+            "prompt": prompt,
+            "reply": full_text if request.include_prompt else full_reply,
             "full_text": full_text,
             "prompt_tokens": len(input_ids),
             "tokens_generated": len(generated_ids),
         }
+
+        yield {"event": "done", "result": result}
 
     def _get_model(self, model_id: str) -> LoadedModel:
         if model_id not in MODEL_CONFIGS:

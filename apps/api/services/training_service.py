@@ -378,6 +378,7 @@ class TrainingService:
         self,
         request: TrainingRequestData,
         progress_callback: Callable[[dict], None] | None = None,
+        should_cancel: Callable[[], bool] | None = None,
     ) -> dict:
         dataset = self._datasets.get(request.dataset_id)
         if dataset is None:
@@ -432,6 +433,7 @@ class TrainingService:
                 device=device,
                 config=training_config,
                 progress_callback=progress_callback,
+                should_cancel=should_cancel,
             )
         else:
             training_summary = train_tiny_language_model(
@@ -441,6 +443,7 @@ class TrainingService:
                 device=device,
                 config=training_config,
                 progress_callback=progress_callback,
+                should_cancel=should_cancel,
             )
         training_summary["before_sample"] = before_sample
         training_summary["dataset_id"] = request.dataset_id

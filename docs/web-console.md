@@ -13,6 +13,7 @@ GPT-2 -> instruction prompt -> optional instruction SFT
 GPT-2 -> frozen base -> LoRA adapters -> merged checkpoint
 custom instruction examples -> train/eval split -> custom SFT
 checkpoint versions -> experiment comparison -> model selection
+streamed tokens -> cancel running jobs -> responsive UI
 ```
 
 ## What Was Added
@@ -20,7 +21,7 @@ checkpoint versions -> experiment comparison -> model selection
 - `apps/web`: a minimal Next.js learning console.
 - GPT Model view: inspect the local GPTModel build order from token ids to logits.
 - Training Config view: learn how TrainingConfig knobs change the training loop.
-- Chat view: send a prompt to a selected model.
+- Chat view: stream token events from a selected model and cancel the active stream.
 - From Scratch view: train the tiny model on small chat-shaped datasets.
 - Raw Text view: train on The Verdict as larger continuation text.
 - GPT-2 view: download and load GPT-2 pretrained weights.
@@ -29,6 +30,7 @@ checkpoint versions -> experiment comparison -> model selection
 - Dataset Builder view: create local instruction examples, split them into train/eval, then train custom SFT.
 - Experiments view: compare saved training runs across version, objective, loss delta, and before/after output.
 - Checkpoints view: inspect model versions, lineage, training config, and load one as a chat model.
+- Cancel controls for streaming chat, training jobs, and GPT-2 load/download jobs.
 - API CORS support for local browser development.
 
 ## Run the API
@@ -83,6 +85,7 @@ http://127.0.0.1:3000
 16. Open Experiments to compare raw pretrained GPT-2, full SFT, LoRA, and custom SFT.
 17. Read the comparison summary before reading generated samples.
 18. Open Checkpoints to inspect model version lineage and load a specific version.
+19. Return to Chat, send a streaming request, and cancel it before `max_new_tokens` is reached.
 
 ## Why This Separation Matters
 
@@ -96,4 +99,5 @@ GPT-2 loading and instruction prompts are explained in [GPT-2 Pretrained and Ins
 LoRA is explained in [LoRA / Parameter-Efficient Fine-Tuning](lora-peft.md).
 Dataset Builder is explained in [Training Data Management and Dataset Builder](dataset-builder.md).
 Model versioning is explained in [Model Versions and Experiment Comparison](model-version-experiment-comparison.md).
+Streaming and cancellation are explained in [Streaming Chat and Job Cancellation](streaming-chat-cancel.md).
 GPU setup is explained in [GPU Runtime Setup for PyTorch](gpu-runtime.md).

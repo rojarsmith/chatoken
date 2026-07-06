@@ -366,6 +366,7 @@ export default function Home() {
   const [chatResult, setChatResult] = useState(null);
   const [chatError, setChatError] = useState("");
   const [isChatting, setIsChatting] = useState(false);
+  const [chatAbortController, setChatAbortController] = useState(null);
 
   const [leftModelId, setLeftModelId] = useState("random-tiny-byte");
   const [rightModelId, setRightModelId] = useState("random-tiny-byte");
@@ -667,11 +668,25 @@ export default function Home() {
   async function sendChat() {
     setIsChatting(true);
     setChatError("");
-    setChatResult(null);
+    const controller = new AbortController();
+    setChatAbortController(controller);
+    setChatResult({
+      model_id: chatModelId,
+      prompt: "",
+      reply: "",
+      full_text: "",
+      prompt_tokens: 0,
+      tokens_generated: 0,
+      streaming: true
+    });
 
     try {
-      const result = await requestJson("/chat", {
+      const response = await fetch(`${normalizedApiBaseUrl}/chat/stream`, {
         method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
           model_id: chatModelId,
           message,
@@ -680,12 +695,57 @@ export default function Home() {
           include_prompt: false
         })
       });
-      setChatResult(result);
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.detail || response.statusText);
+      }
+
+      await readNdjsonStream(response, (event) => {
+        if (event.event === "start") {
+          setChatResult((current) => ({
+            ...(current || {}),
+            model_id: event.model_id,
+            prompt: event.prompt,
+            prompt_tokens: event.prompt_tokens,
+            tokens_generated: 0,
+            streaming: true,
+            cancelled: false
+          }));
+        } else if (event.event === "token") {
+          setChatResult((current) => ({
+            ...(current || {}),
+            model_id: event.model_id,
+            reply: event.reply,
+            full_text: event.full_text,
+            tokens_generated: event.tokens_generated,
+            streaming: true
+          }));
+        } else if (event.event === "done") {
+          setChatResult({ ...event.result, streaming: false, cancelled: false });
+        } else if (event.event === "error") {
+          throw new Error(event.error || "Streaming chat failed.");
+        }
+      });
     } catch (error) {
-      setChatError(error.message);
+      if (error.name === "AbortError") {
+        setChatResult((current) =>
+          current ? { ...current, streaming: false, cancelled: true } : current
+        );
+      } else {
+        setChatError(error.message);
+      }
     } finally {
       setIsChatting(false);
+      setChatAbortController(null);
     }
+  }
+
+  function cancelChatStream() {
+    chatAbortController?.abort();
+    setChatResult((current) =>
+      current ? { ...current, streaming: false, cancelled: true } : current
+    );
+    setIsChatting(false);
   }
 
   async function compareModels() {
@@ -746,6 +806,21 @@ export default function Home() {
     }
   }
 
+  async function cancelTrainingJob() {
+    if (!trainingJob?.job_id) {
+      return;
+    }
+    setTrainingError("");
+    try {
+      const job = await requestJson(`/training/jobs/${trainingJob.job_id}/cancel`, {
+        method: "POST"
+      });
+      setTrainingJob(job);
+    } catch (error) {
+      setTrainingError(error.message);
+    }
+  }
+
   async function startPretrainedDownload(model, nextTab = "pretrained") {
     setIsStartingPretrained(true);
     setPretrainedError("");
@@ -767,6 +842,21 @@ export default function Home() {
       setPretrainedError(error.message);
     } finally {
       setIsStartingPretrained(false);
+    }
+  }
+
+  async function cancelPretrainedJob() {
+    if (!pretrainedJob?.job_id) {
+      return;
+    }
+    setPretrainedError("");
+    try {
+      const job = await requestJson(`/pretrained/jobs/${pretrainedJob.job_id}/cancel`, {
+        method: "POST"
+      });
+      setPretrainedJob(job);
+    } catch (error) {
+      setPretrainedError(error.message);
     }
   }
 
@@ -1054,6 +1144,7 @@ export default function Home() {
               chatError={chatError}
               chatModelId={chatModelId}
               chatResult={chatResult}
+              cancelChatStream={cancelChatStream}
               compareModels={compareModels}
               compareResults={compareResults}
               isChatting={isChatting}
@@ -1077,6 +1168,7 @@ export default function Home() {
           {activeTab === "pretrained" && (
             <PretrainedView
               isStartingPretrained={isStartingPretrained}
+              cancelPretrainedJob={cancelPretrainedJob}
               pretrainedError={pretrainedError}
               pretrainedJob={pretrainedJob}
               pretrainedModels={pretrainedModels}
@@ -1115,6 +1207,8 @@ export default function Home() {
               isPreparingDataset={isPreparingDataset}
               isStartingTraining={isStartingTraining}
               isStartingPretrained={isStartingPretrained}
+              cancelPretrainedJob={cancelPretrainedJob}
+              cancelTrainingJob={cancelTrainingJob}
               lastProgress={lastProgress}
               learningRate={learningRate}
               loadWhenComplete={loadWhenComplete}
@@ -1489,6 +1583,7 @@ function ChatView({
   chatError,
   chatModelId,
   chatResult,
+  cancelChatStream,
   compareModels,
   compareResults,
   isChatting,
@@ -1515,19 +1610,31 @@ function ChatView({
             <h2>Chat</h2>
             <p>Prompt the selected model.</p>
           </div>
-          <button
-            className="primary-button"
-            type="button"
-            onClick={sendChat}
-            disabled={isChatting || !message.trim()}
-          >
-            {isChatting ? (
-              <LoaderCircle aria-hidden="true" className="spin" />
-            ) : (
-              <Send aria-hidden="true" />
+          <div className="button-row">
+            {isChatting && (
+              <button
+                className="secondary-button danger"
+                type="button"
+                onClick={cancelChatStream}
+              >
+                <XCircle aria-hidden="true" />
+                Cancel
+              </button>
             )}
-            Send
-          </button>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={sendChat}
+              disabled={isChatting || !message.trim()}
+            >
+              {isChatting ? (
+                <LoaderCircle aria-hidden="true" className="spin" />
+              ) : (
+                <Send aria-hidden="true" />
+              )}
+              Send
+            </button>
+          </div>
         </div>
 
         <div className="form-grid">
@@ -1586,6 +1693,8 @@ function ChatView({
             <div className="metrics">
               <span>prompt tokens {chatResult.prompt_tokens}</span>
               <span>generated {chatResult.tokens_generated}</span>
+              {chatResult.streaming && <span>streaming</span>}
+              {chatResult.cancelled && <span>cancelled</span>}
             </div>
             <pre>{formatText(chatResult.reply)}</pre>
           </div>
@@ -1655,6 +1764,7 @@ function ChatView({
 }
 
 function PretrainedView({
+  cancelPretrainedJob,
   isStartingPretrained,
   pretrainedError,
   pretrainedJob,
@@ -1671,10 +1781,22 @@ function PretrainedView({
           <h2>Pretrained</h2>
           <p>Download GPT-2 weights and load them as chat models.</p>
         </div>
-        <button className="secondary-button" type="button" onClick={refreshAll}>
-          <RefreshCw aria-hidden="true" />
-          Refresh
-        </button>
+        <div className="button-row">
+          {(pretrainedJob?.status === "queued" || pretrainedJob?.status === "running") && (
+            <button
+              className="secondary-button danger"
+              type="button"
+              onClick={cancelPretrainedJob}
+            >
+              <XCircle aria-hidden="true" />
+              Cancel
+            </button>
+          )}
+          <button className="secondary-button" type="button" onClick={refreshAll}>
+            <RefreshCw aria-hidden="true" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {pretrainedError && <div className="error-line">{pretrainedError}</div>}
@@ -1703,9 +1825,15 @@ function PretrainedView({
               className="primary-button"
               type="button"
               onClick={() => startPretrainedDownload(model)}
-              disabled={isStartingPretrained || pretrainedJob?.status === "running"}
+              disabled={
+                isStartingPretrained ||
+                pretrainedJob?.status === "queued" ||
+                pretrainedJob?.status === "running"
+              }
             >
-              {isStartingPretrained || pretrainedJob?.status === "running" ? (
+              {isStartingPretrained ||
+              pretrainedJob?.status === "queued" ||
+              pretrainedJob?.status === "running" ? (
                 <LoaderCircle aria-hidden="true" className="spin" />
               ) : (
                 <Download aria-hidden="true" />
@@ -1946,6 +2074,8 @@ function TrainingView({
   batchSize,
   baseModelId,
   blockSize,
+  cancelPretrainedJob,
+  cancelTrainingJob,
   datasetPrepareError,
   datasetId,
   datasets,
@@ -1995,6 +2125,8 @@ function TrainingView({
   const isLoraStage = stage.id === "lora";
   const isBuilderStage = stage.id === "dataset-builder";
   const showInstructionLoop = stage.id === "instruction" || isLoraStage || isBuilderStage;
+  const trainingIsActive =
+    trainingJob?.status === "queued" || trainingJob?.status === "running";
   const builderHasTrainExamples =
     !isBuilderStage || (selectedDataset?.train_examples || 0) > 0;
   const beforeTitle =
@@ -2021,23 +2153,31 @@ function TrainingView({
           <h2>{stage.title}</h2>
           <p>{stage.description}</p>
         </div>
-        <button
-          className="primary-button"
-          type="button"
-          onClick={startTraining}
-          disabled={
-            isStartingTraining ||
-            trainingJob?.status === "running" ||
-            !builderHasTrainExamples
-          }
-        >
-          {isStartingTraining ? (
-            <LoaderCircle aria-hidden="true" className="spin" />
-          ) : (
-            <Play aria-hidden="true" />
+        <div className="button-row">
+          {trainingIsActive && (
+            <button
+              className="secondary-button danger"
+              type="button"
+              onClick={cancelTrainingJob}
+            >
+              <XCircle aria-hidden="true" />
+              Cancel
+            </button>
           )}
-          Start
-        </button>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={startTraining}
+            disabled={isStartingTraining || trainingIsActive || !builderHasTrainExamples}
+          >
+            {isStartingTraining ? (
+              <LoaderCircle aria-hidden="true" className="spin" />
+            ) : (
+              <Play aria-hidden="true" />
+            )}
+            Start
+          </button>
+        </div>
       </div>
 
       <DatasetLadder
@@ -2053,6 +2193,7 @@ function TrainingView({
           gpt2Small={gpt2Small}
           isPreparingDataset={isPreparingDataset}
           isStartingPretrained={isStartingPretrained}
+          cancelPretrainedJob={cancelPretrainedJob}
           prepareDataset={prepareDataset}
           pretrainedJob={pretrainedJob}
           runtimeInfo={runtimeInfo}
@@ -2273,6 +2414,7 @@ function TrainingView({
 }
 
 function InstructionLoopPanel({
+  cancelPretrainedJob,
   datasetPrepareError,
   gpt2Loaded,
   gpt2Small,
@@ -2346,6 +2488,16 @@ function InstructionLoopPanel({
             )}
             {gpt2Loaded ? "Base loaded" : gpt2Small.downloaded ? "Load GPT-2" : "Download GPT-2"}
           </button>
+          {(pretrainedJob?.status === "queued" || pretrainedJob?.status === "running") && (
+            <button
+              className="secondary-button danger"
+              type="button"
+              onClick={cancelPretrainedJob}
+            >
+              <XCircle aria-hidden="true" />
+              Cancel
+            </button>
+          )}
           {latestPretrainedProgress?.message && (
             <span className="loop-note">{latestPretrainedProgress.message}</span>
           )}
@@ -2904,6 +3056,37 @@ function resultFromSettled(result) {
   return { error: result.reason.message };
 }
 
+async function readNdjsonStream(response, onEvent) {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("Streaming response body is not available.");
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed) {
+        onEvent(JSON.parse(trimmed));
+      }
+    }
+  }
+
+  buffer += decoder.decode();
+  if (buffer.trim()) {
+    onEvent(JSON.parse(buffer.trim()));
+  }
+}
+
 function buildExperimentComparison(left, right) {
   if (!left || !right) {
     return null;
@@ -3098,6 +3281,9 @@ function stateClass(status) {
   }
   if (status === "failed") {
     return "bad";
+  }
+  if (status === "cancelled") {
+    return "muted";
   }
   return "active-state";
 }

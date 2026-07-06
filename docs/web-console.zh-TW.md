@@ -13,6 +13,7 @@ GPT-2 -> instruction prompt -> optional instruction SFT
 GPT-2 -> frozen base -> LoRA adapters -> merged checkpoint
 custom instruction examples -> train/eval split -> custom SFT
 checkpoint versions -> experiment comparison -> model selection
+streamed tokens -> cancel running jobs -> responsive UI
 ```
 
 ## 新增內容
@@ -20,7 +21,7 @@ checkpoint versions -> experiment comparison -> model selection
 - `apps/web`：最小 Next.js learning console。
 - GPT Model view：檢視本機 GPTModel 從 token ids 到 logits 的建立順序。
 - Training Config view：學習 TrainingConfig 參數如何改變訓練迴圈。
-- Chat view：送 prompt 給指定模型。
+- Chat view：從指定模型串流 token events，並可取消目前 stream。
 - From Scratch view：用小型 chat-shaped datasets 訓練 tiny model。
 - Raw Text view：用 The Verdict 做較大的 continuation text 訓練。
 - GPT-2 view：下載並載入 GPT-2 pretrained weights。
@@ -29,6 +30,7 @@ checkpoint versions -> experiment comparison -> model selection
 - Dataset Builder view：建立本機 instruction examples，切分 train/eval，然後訓練 custom SFT。
 - Experiments view：依 version、objective、loss delta、before/after output 比較訓練紀錄。
 - Checkpoints view：檢視 model versions、lineage、training config，並載入成 chat model。
+- streaming chat、training jobs、GPT-2 load/download jobs 都有 Cancel controls。
 - API CORS：支援本機瀏覽器開發。
 
 ## 啟動 API
@@ -83,6 +85,7 @@ http://127.0.0.1:3000
 16. 打開 Experiments，比較 raw pretrained GPT-2、full SFT、LoRA 和 custom SFT。
 17. 先讀 comparison summary，再讀 generated samples。
 18. 打開 Checkpoints，檢視 model version lineage 並載入指定版本。
+19. 回到 Chat，送出 streaming request，並在到達 `max_new_tokens` 前取消。
 
 ## 為什麼要分開
 
@@ -96,4 +99,5 @@ GPT-2 載入與 instruction prompt 請看 [GPT-2 Pretrained 與 Instruction Prom
 LoRA 請看 [LoRA / Parameter-Efficient Fine-Tuning](lora-peft.zh-TW.md)。
 Dataset Builder 請看 [訓練資料管理與 Dataset Builder](dataset-builder.zh-TW.md)。
 模型版本請看 [模型版本與實驗比較強化](model-version-experiment-comparison.zh-TW.md)。
+Streaming 與取消任務請看 [Streaming Chat 與取消任務](streaming-chat-cancel.zh-TW.md)。
 GPU 設定請看 [PyTorch GPU Runtime 設定](gpu-runtime.zh-TW.md)。

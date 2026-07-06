@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import CancelledError
 from dataclasses import dataclass
 from typing import Callable
 
@@ -86,6 +87,7 @@ def train_tiny_language_model(
     device: torch.device,
     config: TrainingConfig,
     progress_callback: Callable[[dict], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> dict:
     torch.manual_seed(config.seed)
     model.to(device)
@@ -116,7 +118,9 @@ def train_tiny_language_model(
     step = 0
 
     while step < config.max_steps:
+        _raise_if_cancelled(should_cancel)
         for input_batch, target_batch in loader:
+            _raise_if_cancelled(should_cancel)
             input_batch = input_batch.to(device)
             target_batch = target_batch.to(device)
 
@@ -180,6 +184,7 @@ def train_instruction_language_model(
     device: torch.device,
     config: TrainingConfig,
     progress_callback: Callable[[dict], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> dict:
     torch.manual_seed(config.seed)
     model.to(device)
@@ -214,7 +219,9 @@ def train_instruction_language_model(
     step = 0
 
     while step < config.max_steps:
+        _raise_if_cancelled(should_cancel)
         for input_batch, target_batch in loader:
+            _raise_if_cancelled(should_cancel)
             optimizer.zero_grad(set_to_none=True)
             logits = model(input_batch)
             loss = torch.nn.functional.cross_entropy(
@@ -304,6 +311,11 @@ def _clean_generated_sample(text: str, *, config_style: str) -> str:
         if marker in sample:
             sample = sample.split(marker, 1)[0].strip()
     return sample
+
+
+def _raise_if_cancelled(should_cancel: Callable[[], bool] | None) -> None:
+    if should_cancel is not None and should_cancel():
+        raise CancelledError("Training cancelled.")
 
 
 def _collate_instruction_batch(

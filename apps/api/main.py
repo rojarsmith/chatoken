@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+import json
+from concurrent.futures import CancelledError, ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from threading import Lock
@@ -10,6 +11,7 @@ from uuid import uuid4
 import torch
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from apps.api.services.chat_service import ChatRequestData, ChatService
@@ -90,36 +92,39 @@ class DatasetBuilderExampleRequest(BaseModel):
 @dataclass
 class ChatJob:
     job_id: str
-    status: Literal["queued", "running", "succeeded", "failed"]
+    status: Literal["queued", "running", "succeeded", "failed", "cancelled"]
     created_at: str
     updated_at: str
     request: dict
     result: dict | None = None
     error: str | None = None
+    cancel_requested: bool = False
 
 
 @dataclass
 class TrainingJob:
     job_id: str
-    status: Literal["queued", "running", "succeeded", "failed"]
+    status: Literal["queued", "running", "succeeded", "failed", "cancelled"]
     created_at: str
     updated_at: str
     request: dict
     progress: list[dict]
     result: dict | None = None
     error: str | None = None
+    cancel_requested: bool = False
 
 
 @dataclass
 class PretrainedJob:
     job_id: str
-    status: Literal["queued", "running", "succeeded", "failed"]
+    status: Literal["queued", "running", "succeeded", "failed", "cancelled"]
     created_at: str
     updated_at: str
     request: dict
     progress: list[dict]
     result: dict | None = None
     error: str | None = None
+    cancel_requested: bool = False
 
 
 chat_jobs: dict[str, ChatJob] = {}
@@ -170,6 +175,11 @@ def get_pretrained_job(job_id: str) -> dict:
         return _job_to_dict(job)
 
 
+@app.post("/pretrained/jobs/{job_id}/cancel")
+def cancel_pretrained_job(job_id: str) -> dict:
+    return _cancel_pretrained_job(job_id)
+
+
 @app.post("/models/load")
 def load_model(request: ModelLoadRequest) -> dict:
     try:
@@ -197,6 +207,21 @@ def chat(request: ChatRequest) -> ChatResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.post("/chat/stream")
+def stream_chat(request: ChatRequest) -> StreamingResponse:
+    def events():
+        try:
+            for event in chat_service.stream_reply(_to_request_data(request)):
+                yield json.dumps(event, ensure_ascii=False) + "\n"
+        except ValueError as exc:
+            yield json.dumps(
+                {"event": "error", "error": str(exc)},
+                ensure_ascii=False,
+            ) + "\n"
+
+    return StreamingResponse(events(), media_type="application/x-ndjson")
+
+
 @app.post("/chat/jobs")
 def create_chat_job(request: ChatRequest) -> dict:
     job_id = str(uuid4())
@@ -222,6 +247,11 @@ def get_chat_job(job_id: str) -> dict:
         if job is None:
             raise HTTPException(status_code=404, detail="Chat job not found")
         return _job_to_dict(job)
+
+
+@app.post("/chat/jobs/{job_id}/cancel")
+def cancel_chat_job(job_id: str) -> dict:
+    return _cancel_chat_job(job_id)
 
 
 @app.get("/training/datasets")
@@ -334,43 +364,79 @@ def get_training_job(job_id: str) -> dict:
         return _job_to_dict(job)
 
 
+@app.post("/training/jobs/{job_id}/cancel")
+def cancel_training_job(job_id: str) -> dict:
+    return _cancel_training_job(job_id)
+
+
 def _run_chat_job(job_id: str, request: ChatRequest) -> None:
+    if _chat_cancel_requested(job_id):
+        _update_chat_job(job_id, status="cancelled", error="Cancelled by user.")
+        return
     _update_chat_job(job_id, status="running")
     try:
-        result = chat_service.generate_reply(_to_request_data(request))
+        result = None
+        for event in chat_service.stream_reply(
+            _to_request_data(request),
+            should_cancel=lambda: _chat_cancel_requested(job_id),
+        ):
+            if event["event"] == "done":
+                result = event["result"]
+        if result is None:
+            raise RuntimeError("Chat generation produced no result.")
         _update_chat_job(job_id, status="succeeded", result=result)
+    except CancelledError:
+        _update_chat_job(job_id, status="cancelled", error="Cancelled by user.")
     except Exception as exc:  # Keep job failures visible to the UI.
         _update_chat_job(job_id, status="failed", error=str(exc))
 
 
 def _run_training_job(job_id: str, request: TrainingRequest) -> None:
+    if _training_cancel_requested(job_id):
+        _update_training_job(job_id, status="cancelled", error="Cancelled by user.")
+        return
     _update_training_job(job_id, status="running")
     try:
         result = training_service.train(
             _to_training_request_data(request, job_id=job_id),
             progress_callback=lambda event: _append_training_progress(job_id, event),
+            should_cancel=lambda: _training_cancel_requested(job_id),
         )
         _update_training_job(job_id, status="succeeded", result=result)
+    except CancelledError:
+        _update_training_job(job_id, status="cancelled", error="Cancelled by user.")
     except Exception as exc:
         _update_training_job(job_id, status="failed", error=str(exc))
 
 
 def _run_pretrained_job(job_id: str, request: PretrainedLoadRequest) -> None:
+    if _pretrained_cancel_requested(job_id):
+        _update_pretrained_job(job_id, status="cancelled", error="Cancelled by user.")
+        return
     _update_pretrained_job(job_id, status="running")
     try:
+        def progress(event: dict) -> None:
+            if _pretrained_cancel_requested(job_id):
+                raise CancelledError("Pretrained load cancelled.")
+            _append_pretrained_progress(job_id, event)
+
         result = pretrained_service.download_and_load(
             model_size=request.model_size,
             model_id=request.model_id,
-            progress_callback=lambda event: _append_pretrained_progress(job_id, event),
+            progress_callback=progress,
         )
+        if _pretrained_cancel_requested(job_id):
+            raise CancelledError("Pretrained load cancelled.")
         _update_pretrained_job(job_id, status="succeeded", result=result)
+    except CancelledError:
+        _update_pretrained_job(job_id, status="cancelled", error="Cancelled by user.")
     except Exception as exc:
         _update_pretrained_job(job_id, status="failed", error=str(exc))
 
 
 def _update_chat_job(
     job_id: str,
-    status: Literal["queued", "running", "succeeded", "failed"],
+    status: Literal["queued", "running", "succeeded", "failed", "cancelled"],
     result: dict | None = None,
     error: str | None = None,
 ) -> None:
@@ -384,7 +450,7 @@ def _update_chat_job(
 
 def _update_training_job(
     job_id: str,
-    status: Literal["queued", "running", "succeeded", "failed"],
+    status: Literal["queued", "running", "succeeded", "failed", "cancelled"],
     result: dict | None = None,
     error: str | None = None,
 ) -> None:
@@ -398,7 +464,7 @@ def _update_training_job(
 
 def _update_pretrained_job(
     job_id: str,
-    status: Literal["queued", "running", "succeeded", "failed"],
+    status: Literal["queued", "running", "succeeded", "failed", "cancelled"],
     result: dict | None = None,
     error: str | None = None,
 ) -> None:
@@ -410,9 +476,68 @@ def _update_pretrained_job(
         job.error = error
 
 
+def _cancel_chat_job(job_id: str) -> dict:
+    with chat_jobs_lock:
+        job = chat_jobs.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Chat job not found")
+        job.cancel_requested = True
+        job.updated_at = _utc_now()
+        if job.status == "queued":
+            job.status = "cancelled"
+            job.error = "Cancelled by user."
+        return _job_to_dict(job)
+
+
+def _cancel_training_job(job_id: str) -> dict:
+    with training_jobs_lock:
+        job = training_jobs.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Training job not found")
+        job.cancel_requested = True
+        job.updated_at = _utc_now()
+        if job.status == "queued":
+            job.status = "cancelled"
+            job.error = "Cancelled by user."
+        return _job_to_dict(job)
+
+
+def _cancel_pretrained_job(job_id: str) -> dict:
+    with pretrained_jobs_lock:
+        job = pretrained_jobs.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Pretrained job not found")
+        job.cancel_requested = True
+        job.updated_at = _utc_now()
+        if job.status == "queued":
+            job.status = "cancelled"
+            job.error = "Cancelled by user."
+        return _job_to_dict(job)
+
+
+def _chat_cancel_requested(job_id: str) -> bool:
+    with chat_jobs_lock:
+        job = chat_jobs.get(job_id)
+        return job is None or job.cancel_requested or job.status == "cancelled"
+
+
+def _training_cancel_requested(job_id: str) -> bool:
+    with training_jobs_lock:
+        job = training_jobs.get(job_id)
+        return job is None or job.cancel_requested or job.status == "cancelled"
+
+
+def _pretrained_cancel_requested(job_id: str) -> bool:
+    with pretrained_jobs_lock:
+        job = pretrained_jobs.get(job_id)
+        return job is None or job.cancel_requested or job.status == "cancelled"
+
+
 def _append_training_progress(job_id: str, event: dict) -> None:
     with training_jobs_lock:
         job = training_jobs[job_id]
+        if job.status == "cancelled":
+            return
         job.progress.append(event)
         job.updated_at = _utc_now()
 
@@ -420,6 +545,8 @@ def _append_training_progress(job_id: str, event: dict) -> None:
 def _append_pretrained_progress(job_id: str, event: dict) -> None:
     with pretrained_jobs_lock:
         job = pretrained_jobs[job_id]
+        if job.status == "cancelled":
+            return
         job.progress.append(event)
         job.updated_at = _utc_now()
 
