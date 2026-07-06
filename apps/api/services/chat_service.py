@@ -15,7 +15,7 @@ from llm_core.checkpoints import (
     load_checkpoint,
 )
 from llm_core.configs import MODEL_CONFIGS, ModelConfig
-from llm_core.generation import prepare_chat_prompt
+from llm_core.generation import BUILT_IN_PROMPT_TEMPLATES, prepare_chat_prompt
 from llm_core.model import GPTModel, count_parameters
 from llm_core.tokenizer import Tokenizer, tokenizer_for_name
 
@@ -28,6 +28,17 @@ class ChatRequestData:
     temperature: float
     top_k: int | None
     include_prompt: bool
+    prompt_style: str = "model-default"
+    prompt_template: str | None = None
+    inference_mode: str = "manual"
+
+
+INFERENCE_MODE_PRESETS = {
+    "manual": None,
+    "greedy": {"temperature": 0.0, "top_k": None},
+    "focused": {"temperature": 0.4, "top_k": 20},
+    "creative": {"temperature": 1.0, "top_k": 80},
+}
 
 
 @dataclass
@@ -164,13 +175,66 @@ class ChatService:
             raise RuntimeError("Chat generation produced no result.")
         return result
 
+    def preview_prompt(self, request: ChatRequestData) -> dict:
+        loaded = self._get_model(request.model_id)
+        effective_prompt_style = _effective_prompt_style(
+            request.prompt_style,
+            loaded.config.prompt_style,
+        )
+        prompt_template = (
+            request.prompt_template if effective_prompt_style == "custom" else None
+        )
+        prompt = prepare_chat_prompt(
+            request.message,
+            effective_prompt_style,
+            prompt_template,
+        )
+        input_ids = loaded.tokenizer.encode(prompt)
+        generation_config = _generation_config(request)
+        warnings = []
+
+        if len(input_ids) > loaded.config.context_length:
+            warnings.append(
+                "Prompt is longer than the model context; generation will use the "
+                "last context window."
+            )
+        if len(input_ids) + request.max_new_tokens > loaded.config.context_length:
+            warnings.append(
+                "Prompt plus requested output exceeds context length; older prompt "
+                "tokens may be dropped during generation."
+            )
+
+        return {
+            "model_id": request.model_id,
+            "model_prompt_style": loaded.config.prompt_style,
+            "requested_prompt_style": request.prompt_style,
+            "effective_prompt_style": effective_prompt_style,
+            "inference_mode": request.inference_mode,
+            "temperature": generation_config["temperature"],
+            "top_k": generation_config["top_k"],
+            "prompt": prompt,
+            "prompt_tokens": len(input_ids),
+            "context_length": loaded.config.context_length,
+            "remaining_context_tokens": max(
+                0,
+                loaded.config.context_length - len(input_ids),
+            ),
+            "max_new_tokens": request.max_new_tokens,
+            "template": prompt_template
+            or BUILT_IN_PROMPT_TEMPLATES.get(effective_prompt_style, ""),
+            "warnings": warnings,
+        }
+
     def stream_reply(
         self,
         request: ChatRequestData,
         should_cancel: Callable[[], bool] | None = None,
     ) -> Iterator[dict]:
         loaded = self._get_model(request.model_id)
-        prompt = prepare_chat_prompt(request.message, loaded.config.prompt_style)
+        preview = self.preview_prompt(request)
+        prompt = preview["prompt"]
+        generation_config = _generation_config(request)
+        effective_prompt_style = preview["effective_prompt_style"]
         input_ids = loaded.tokenizer.encode(prompt)
         if not input_ids:
             input_ids = [loaded.tokenizer.eos_id]
@@ -185,6 +249,10 @@ class ChatService:
             "prompt": prompt,
             "prompt_tokens": len(input_ids),
             "tokens_generated": 0,
+            "prompt_style": effective_prompt_style,
+            "inference_mode": request.inference_mode,
+            "temperature": generation_config["temperature"],
+            "top_k": generation_config["top_k"],
         }
 
         with self._locks[request.model_id]:
@@ -198,10 +266,10 @@ class ChatService:
                     logits = loaded.model(idx_cond)
 
                 logits = logits[:, -1, :]
-                if request.top_k is not None:
+                if generation_config["top_k"] is not None:
                     top_logits, _ = torch.topk(
                         logits,
-                        min(request.top_k, logits.shape[-1]),
+                        min(generation_config["top_k"], logits.shape[-1]),
                     )
                     min_val = top_logits[:, -1]
                     logits = torch.where(
@@ -210,8 +278,8 @@ class ChatService:
                         logits,
                     )
 
-                if request.temperature > 0.0:
-                    logits = logits / request.temperature
+                if generation_config["temperature"] > 0.0:
+                    logits = logits / generation_config["temperature"]
                     probs = torch.softmax(logits, dim=-1)
                     idx_next = torch.multinomial(probs, num_samples=1)
                 else:
@@ -225,7 +293,7 @@ class ChatService:
                 generated_ids.append(token_id)
                 next_reply = _clean_reply(
                     loaded.tokenizer.decode(generated_ids),
-                    prompt_style=loaded.config.prompt_style,
+                    prompt_style=effective_prompt_style,
                 )
                 delta = next_reply[len(full_reply) :]
                 full_reply = next_reply
@@ -250,6 +318,10 @@ class ChatService:
             "full_text": full_text,
             "prompt_tokens": len(input_ids),
             "tokens_generated": len(generated_ids),
+            "prompt_style": effective_prompt_style,
+            "inference_mode": request.inference_mode,
+            "temperature": generation_config["temperature"],
+            "top_k": generation_config["top_k"],
         }
 
         yield {"event": "done", "result": result}
@@ -291,3 +363,24 @@ def _clean_reply(text: str, *, prompt_style: str) -> str:
     if prompt_style == "instruction":
         reply = reply.replace("### Response:", "", 1).strip()
     return reply
+
+
+def _effective_prompt_style(requested: str, model_prompt_style: str) -> str:
+    if requested in {"", "model-default"}:
+        return model_prompt_style
+    if requested in {"raw", "chat", "instruction", "custom"}:
+        return requested
+    raise ValueError(f"Unknown prompt_style: {requested}")
+
+
+def _generation_config(request: ChatRequestData) -> dict:
+    if request.inference_mode not in INFERENCE_MODE_PRESETS:
+        raise ValueError(f"Unknown inference_mode: {request.inference_mode}")
+
+    preset = INFERENCE_MODE_PRESETS[request.inference_mode]
+    if preset is None:
+        return {
+            "temperature": request.temperature,
+            "top_k": request.top_k,
+        }
+    return dict(preset)

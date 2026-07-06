@@ -3,12 +3,42 @@ from __future__ import annotations
 import torch
 
 
-def prepare_chat_prompt(message: str, prompt_style: str = "chat") -> str:
+BUILT_IN_PROMPT_TEMPLATES = {
+    "raw": "{message}",
+    "chat": "User: {message}\nAssistant:",
+    "instruction": (
+        "Below is an instruction that describes a task. "
+        "Write a response that appropriately completes the request."
+        "\n\n### Instruction:\n{message}"
+        "\n\n### Response:"
+    ),
+}
+
+
+def prepare_chat_prompt(
+    message: str,
+    prompt_style: str = "chat",
+    prompt_template: str | None = None,
+) -> str:
+    if prompt_style == "custom":
+        if not prompt_template:
+            raise ValueError("prompt_template is required when prompt_style='custom'.")
+        return render_prompt_template(prompt_template, message)
     if prompt_style == "raw":
         return message
     if prompt_style == "instruction":
         return format_instruction_prompt(message) + "\n\n### Response:"
     return f"User: {message}\nAssistant:"
+
+
+def render_prompt_template(template: str, message: str) -> str:
+    if "{message}" not in template and "{instruction}" not in template:
+        raise ValueError("Prompt template must contain {message} or {instruction}.")
+    return (
+        template.replace("{message}", message)
+        .replace("{instruction}", message)
+        .replace("{input}", "")
+    )
 
 
 def format_instruction_prompt(instruction: str, input_text: str = "") -> str:

@@ -48,6 +48,15 @@ class ChatRequest(BaseModel):
     temperature: float = Field(0.0, ge=0.0, le=2.0)
     top_k: int | None = Field(None, ge=1, le=200)
     include_prompt: bool = False
+    prompt_style: Literal[
+        "model-default",
+        "raw",
+        "chat",
+        "instruction",
+        "custom",
+    ] = "model-default"
+    prompt_template: str | None = Field(None, max_length=4_000)
+    inference_mode: Literal["manual", "greedy", "focused", "creative"] = "manual"
 
 
 class ChatResponse(BaseModel):
@@ -57,6 +66,10 @@ class ChatResponse(BaseModel):
     full_text: str
     prompt_tokens: int
     tokens_generated: int
+    prompt_style: str | None = None
+    inference_mode: str | None = None
+    temperature: float | None = None
+    top_k: int | None = None
 
 
 class TrainingRequest(BaseModel):
@@ -203,6 +216,14 @@ def chat(request: ChatRequest) -> ChatResponse:
     try:
         result = chat_service.generate_reply(_to_request_data(request))
         return ChatResponse(**result)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/chat/prompt-preview")
+def preview_chat_prompt(request: ChatRequest) -> dict:
+    try:
+        return chat_service.preview_prompt(_to_request_data(request))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -563,6 +584,9 @@ def _to_request_data(request: ChatRequest) -> ChatRequestData:
         temperature=request.temperature,
         top_k=request.top_k,
         include_prompt=request.include_prompt,
+        prompt_style=request.prompt_style,
+        prompt_template=request.prompt_template,
+        inference_mode=request.inference_mode,
     )
 
 

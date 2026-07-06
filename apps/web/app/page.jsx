@@ -28,6 +28,8 @@ const DEFAULT_API_BASE_URL =
 const DEFAULT_CHAT_MESSAGE = "Every effort moves you";
 const GPT2_INSTRUCTION_MESSAGE =
   "Explain what a model checkpoint is in one sentence.";
+const PROMPT_PLAYGROUND_TEMPLATE =
+  "System: You answer in one concise paragraph.\nUser: {message}\nAssistant:";
 const EMPTY_BUILDER_DRAFT = {
   example_id: "",
   split: "train",
@@ -174,6 +176,7 @@ const TABS = [
   { id: "architecture", label: "GPT Model", icon: BrainCircuit },
   { id: "training-knobs", label: "Training Config", icon: SlidersHorizontal },
   { id: "chat", label: "Chat", icon: Send },
+  { id: "prompt-playground", label: "Prompt Lab", icon: Pencil },
   { id: "from-scratch", label: "From Scratch", icon: Activity },
   { id: "raw-text", label: "Raw Text", icon: Database },
   { id: "pretrained", label: "GPT-2", icon: Download },
@@ -182,6 +185,57 @@ const TABS = [
   { id: "dataset-builder", label: "Dataset Builder", icon: Database },
   { id: "experiments", label: "Experiments", icon: History },
   { id: "checkpoints", label: "Checkpoints", icon: Save }
+];
+
+const PROMPT_STYLE_OPTIONS = [
+  {
+    value: "model-default",
+    label: "Model default",
+    detail: "Use the prompt style saved with the selected model."
+  },
+  {
+    value: "raw",
+    label: "Raw text",
+    detail: "Send only the message text."
+  },
+  {
+    value: "chat",
+    label: "Chat",
+    detail: "Wrap as User/Assistant turns."
+  },
+  {
+    value: "instruction",
+    label: "Instruction",
+    detail: "Wrap as instruction and response sections."
+  },
+  {
+    value: "custom",
+    label: "Custom template",
+    detail: "Render your template with {message}."
+  }
+];
+
+const INFERENCE_MODE_OPTIONS = [
+  {
+    value: "manual",
+    label: "Manual",
+    detail: "Use the temperature and top-k fields below."
+  },
+  {
+    value: "greedy",
+    label: "Greedy",
+    detail: "temperature 0, deterministic next-token choice."
+  },
+  {
+    value: "focused",
+    label: "Focused",
+    detail: "temperature 0.4 and top-k 20."
+  },
+  {
+    value: "creative",
+    label: "Creative",
+    detail: "temperature 1.0 and top-k 80."
+  }
 ];
 
 const MODEL_BUILD_STEPS = [
@@ -368,6 +422,25 @@ export default function Home() {
   const [isChatting, setIsChatting] = useState(false);
   const [chatAbortController, setChatAbortController] = useState(null);
 
+  const [playgroundMessage, setPlaygroundMessage] = useState(DEFAULT_CHAT_MESSAGE);
+  const [playgroundModelId, setPlaygroundModelId] = useState("random-tiny-byte");
+  const [playgroundPromptStyle, setPlaygroundPromptStyle] =
+    useState("model-default");
+  const [playgroundTemplate, setPlaygroundTemplate] = useState(
+    PROMPT_PLAYGROUND_TEMPLATE
+  );
+  const [playgroundInferenceMode, setPlaygroundInferenceMode] =
+    useState("manual");
+  const [playgroundMaxNewTokens, setPlaygroundMaxNewTokens] = useState(32);
+  const [playgroundTemperature, setPlaygroundTemperature] = useState(0);
+  const [playgroundTopK, setPlaygroundTopK] = useState("");
+  const [promptPreview, setPromptPreview] = useState(null);
+  const [promptPlaygroundResult, setPromptPlaygroundResult] = useState(null);
+  const [promptPlaygroundError, setPromptPlaygroundError] = useState("");
+  const [isPreviewingPrompt, setIsPreviewingPrompt] = useState(false);
+  const [isRunningPromptPlayground, setIsRunningPromptPlayground] =
+    useState(false);
+
   const [leftModelId, setLeftModelId] = useState("random-tiny-byte");
   const [rightModelId, setRightModelId] = useState("random-tiny-byte");
   const [compareResults, setCompareResults] = useState(null);
@@ -412,7 +485,13 @@ export default function Home() {
   const modelOptions = useMemo(() => {
     const base = models.length > 0 ? models : FALLBACK_MODELS;
     const byId = new Map(base.map((model) => [model.model_id, model]));
-    [chatModelId, leftModelId, rightModelId, baseModelId].forEach((modelId) => {
+    [
+      chatModelId,
+      playgroundModelId,
+      leftModelId,
+      rightModelId,
+      baseModelId
+    ].forEach((modelId) => {
       if (modelId && !byId.has(modelId)) {
         byId.set(modelId, {
           model_id: modelId,
@@ -425,7 +504,7 @@ export default function Home() {
       }
     });
     return Array.from(byId.values());
-  }, [baseModelId, chatModelId, leftModelId, models, rightModelId]);
+  }, [baseModelId, chatModelId, leftModelId, models, playgroundModelId, rightModelId]);
   const chatModelOptions = useMemo(() => {
     const options = modelOptions.filter((model) => model.state !== "not-loaded");
     return options.length > 0 ? options : FALLBACK_MODELS;
@@ -493,13 +572,16 @@ export default function Home() {
     if (!availableIds.has(chatModelId)) {
       setChatModelId(fallbackId);
     }
+    if (!availableIds.has(playgroundModelId)) {
+      setPlaygroundModelId(fallbackId);
+    }
     if (!availableIds.has(leftModelId)) {
       setLeftModelId(fallbackId);
     }
     if (!availableIds.has(rightModelId)) {
       setRightModelId(fallbackId);
     }
-  }, [chatModelId, chatModelOptions, leftModelId, rightModelId]);
+  }, [chatModelId, chatModelOptions, leftModelId, playgroundModelId, rightModelId]);
 
   useEffect(() => {
     refreshAll();
@@ -524,6 +606,7 @@ export default function Home() {
           await refreshAll();
           if (job.result?.loaded_model?.model_id) {
             setChatModelId(job.result.loaded_model.model_id);
+            setPlaygroundModelId(job.result.loaded_model.model_id);
             setRightModelId(job.result.loaded_model.model_id);
             setBaseModelId(job.result.loaded_model.model_id);
           }
@@ -560,9 +643,11 @@ export default function Home() {
           await refreshAll();
           if (job.result?.model_id) {
             setChatModelId(job.result.model_id);
+            setPlaygroundModelId(job.result.model_id);
             setRightModelId(job.result.model_id);
             setBaseModelId(job.result.model_id);
             setMessage(GPT2_INSTRUCTION_MESSAGE);
+            setPlaygroundMessage(GPT2_INSTRUCTION_MESSAGE);
           }
         }
       } catch (error) {
@@ -746,6 +831,63 @@ export default function Home() {
       current ? { ...current, streaming: false, cancelled: true } : current
     );
     setIsChatting(false);
+  }
+
+  function promptPlaygroundPayload() {
+    const topK = `${playgroundTopK}`.trim();
+    return {
+      model_id: playgroundModelId,
+      message: playgroundMessage,
+      max_new_tokens: Number(playgroundMaxNewTokens),
+      temperature: Number(playgroundTemperature),
+      top_k: topK ? Number(topK) : null,
+      include_prompt: false,
+      prompt_style: playgroundPromptStyle,
+      prompt_template:
+        playgroundPromptStyle === "custom" ? playgroundTemplate : null,
+      inference_mode: playgroundInferenceMode
+    };
+  }
+
+  async function previewPromptPlayground() {
+    setIsPreviewingPrompt(true);
+    setPromptPlaygroundError("");
+
+    try {
+      const preview = await requestJson("/chat/prompt-preview", {
+        method: "POST",
+        body: JSON.stringify(promptPlaygroundPayload())
+      });
+      setPromptPreview(preview);
+    } catch (error) {
+      setPromptPlaygroundError(error.message);
+    } finally {
+      setIsPreviewingPrompt(false);
+    }
+  }
+
+  async function runPromptPlayground() {
+    setIsRunningPromptPlayground(true);
+    setPromptPlaygroundError("");
+    setPromptPlaygroundResult(null);
+
+    try {
+      const payload = promptPlaygroundPayload();
+      const preview = await requestJson("/chat/prompt-preview", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      setPromptPreview(preview);
+      const result = await requestJson("/chat", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      setPromptPlaygroundResult(result);
+    } catch (error) {
+      setPromptPlaygroundError(error.message);
+    } finally {
+      setIsRunningPromptPlayground(false);
+    }
   }
 
   async function compareModels() {
@@ -1006,6 +1148,9 @@ export default function Home() {
     setBaseModelId(dataset.recommended_base_model_id || baseModelId);
     setOutputModelId(dataset.output_model_id || outputModelId);
     setMessage(dataset.comparison_prompt || dataset.sample_prompt || message);
+    setPlaygroundMessage(
+      dataset.comparison_prompt || dataset.sample_prompt || playgroundMessage
+    );
   }
 
   async function loadCheckpoint(checkpoint) {
@@ -1022,6 +1167,7 @@ export default function Home() {
       });
       await refreshAll();
       setChatModelId(loaded.model_id);
+      setPlaygroundModelId(loaded.model_id);
       setRightModelId(loaded.model_id);
       setBaseModelId(loaded.model_id);
       setActiveTab("chat");
@@ -1046,9 +1192,13 @@ export default function Home() {
       });
       await refreshAll();
       setChatModelId(loaded.model_id);
+      setPlaygroundModelId(loaded.model_id);
       setRightModelId(loaded.model_id);
       setBaseModelId(loaded.model_id);
       setMessage(experiment.comparison_prompt || experiment.sample_prompt || message);
+      setPlaygroundMessage(
+        experiment.comparison_prompt || experiment.sample_prompt || playgroundMessage
+      );
       setActiveTab("chat");
     } catch (error) {
       setExperimentError(error.message);
@@ -1162,6 +1312,37 @@ export default function Home() {
               setRightModelId={setRightModelId}
               setTemperature={setTemperature}
               temperature={temperature}
+            />
+          )}
+
+          {activeTab === "prompt-playground" && (
+            <PromptPlaygroundView
+              inferenceModeOptions={INFERENCE_MODE_OPTIONS}
+              isPreviewingPrompt={isPreviewingPrompt}
+              isRunningPromptPlayground={isRunningPromptPlayground}
+              modelOptions={chatModelOptions}
+              playgroundInferenceMode={playgroundInferenceMode}
+              playgroundMaxNewTokens={playgroundMaxNewTokens}
+              playgroundMessage={playgroundMessage}
+              playgroundModelId={playgroundModelId}
+              playgroundPromptStyle={playgroundPromptStyle}
+              playgroundTemplate={playgroundTemplate}
+              playgroundTemperature={playgroundTemperature}
+              playgroundTopK={playgroundTopK}
+              promptPlaygroundError={promptPlaygroundError}
+              promptPlaygroundResult={promptPlaygroundResult}
+              promptPreview={promptPreview}
+              promptStyleOptions={PROMPT_STYLE_OPTIONS}
+              previewPromptPlayground={previewPromptPlayground}
+              runPromptPlayground={runPromptPlayground}
+              setPlaygroundInferenceMode={setPlaygroundInferenceMode}
+              setPlaygroundMaxNewTokens={setPlaygroundMaxNewTokens}
+              setPlaygroundMessage={setPlaygroundMessage}
+              setPlaygroundModelId={setPlaygroundModelId}
+              setPlaygroundPromptStyle={setPlaygroundPromptStyle}
+              setPlaygroundTemplate={setPlaygroundTemplate}
+              setPlaygroundTemperature={setPlaygroundTemperature}
+              setPlaygroundTopK={setPlaygroundTopK}
             />
           )}
 
@@ -1756,6 +1937,280 @@ function ChatView({
           <div className="comparison-grid">
             <ComparisonColumn title={leftModelId} result={compareResults.left} />
             <ComparisonColumn title={rightModelId} result={compareResults.right} />
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function PromptPlaygroundView({
+  inferenceModeOptions,
+  isPreviewingPrompt,
+  isRunningPromptPlayground,
+  modelOptions,
+  playgroundInferenceMode,
+  playgroundMaxNewTokens,
+  playgroundMessage,
+  playgroundModelId,
+  playgroundPromptStyle,
+  playgroundTemplate,
+  playgroundTemperature,
+  playgroundTopK,
+  promptPlaygroundError,
+  promptPlaygroundResult,
+  promptPreview,
+  promptStyleOptions,
+  previewPromptPlayground,
+  runPromptPlayground,
+  setPlaygroundInferenceMode,
+  setPlaygroundMaxNewTokens,
+  setPlaygroundMessage,
+  setPlaygroundModelId,
+  setPlaygroundPromptStyle,
+  setPlaygroundTemplate,
+  setPlaygroundTemperature,
+  setPlaygroundTopK
+}) {
+  const selectedInferenceMode = inferenceModeOptions.find(
+    (mode) => mode.value === playgroundInferenceMode
+  );
+  const selectedPromptStyle = promptStyleOptions.find(
+    (style) => style.value === playgroundPromptStyle
+  );
+  const manualMode = playgroundInferenceMode === "manual";
+
+  return (
+    <div className="view-stack">
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Prompt Template Playground</h2>
+            <p>Compare prompt wrapping and decoding settings before generation.</p>
+          </div>
+          <div className="button-row">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={previewPromptPlayground}
+              disabled={isPreviewingPrompt || !playgroundMessage.trim()}
+            >
+              {isPreviewingPrompt ? (
+                <LoaderCircle aria-hidden="true" className="spin" />
+              ) : (
+                <Pencil aria-hidden="true" />
+              )}
+              Preview
+            </button>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={runPromptPlayground}
+              disabled={isRunningPromptPlayground || !playgroundMessage.trim()}
+            >
+              {isRunningPromptPlayground ? (
+                <LoaderCircle aria-hidden="true" className="spin" />
+              ) : (
+                <Play aria-hidden="true" />
+              )}
+              Generate
+            </button>
+          </div>
+        </div>
+
+        <div className="form-grid">
+          <label className="field wide">
+            <span>Message</span>
+            <textarea
+              value={playgroundMessage}
+              onChange={(event) => setPlaygroundMessage(event.target.value)}
+              rows={4}
+            />
+          </label>
+
+          <label className="field">
+            <span>Model</span>
+            <select
+              value={playgroundModelId}
+              onChange={(event) => setPlaygroundModelId(event.target.value)}
+            >
+              {modelOptions.map((model) => (
+                <option key={model.model_id} value={model.model_id}>
+                  {model.model_id}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Prompt style</span>
+            <select
+              value={playgroundPromptStyle}
+              onChange={(event) => setPlaygroundPromptStyle(event.target.value)}
+            >
+              {promptStyleOptions.map((style) => (
+                <option key={style.value} value={style.value}>
+                  {style.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Inference mode</span>
+            <select
+              value={playgroundInferenceMode}
+              onChange={(event) => setPlaygroundInferenceMode(event.target.value)}
+            >
+              {inferenceModeOptions.map((mode) => (
+                <option key={mode.value} value={mode.value}>
+                  {mode.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Max tokens</span>
+            <input
+              type="number"
+              min="1"
+              max="200"
+              value={playgroundMaxNewTokens}
+              onChange={(event) => setPlaygroundMaxNewTokens(event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>Temperature</span>
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="0.1"
+              value={playgroundTemperature}
+              onChange={(event) => setPlaygroundTemperature(event.target.value)}
+              disabled={!manualMode}
+            />
+            <strong>{Number(playgroundTemperature).toFixed(1)}</strong>
+          </label>
+
+          <label className="field">
+            <span>Top-k</span>
+            <input
+              type="number"
+              min="1"
+              max="200"
+              value={playgroundTopK}
+              onChange={(event) => setPlaygroundTopK(event.target.value)}
+              placeholder="none"
+              disabled={!manualMode}
+            />
+          </label>
+        </div>
+
+        <div className="playground-notes">
+          {selectedPromptStyle && <span>{selectedPromptStyle.detail}</span>}
+          {selectedInferenceMode && <span>{selectedInferenceMode.detail}</span>}
+        </div>
+
+        {playgroundPromptStyle === "custom" && (
+          <label className="field template-editor">
+            <span>Custom template</span>
+            <textarea
+              value={playgroundTemplate}
+              onChange={(event) => setPlaygroundTemplate(event.target.value)}
+              rows={5}
+            />
+          </label>
+        )}
+
+        {promptPlaygroundError && (
+          <div className="error-line">{promptPlaygroundError}</div>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Rendered Prompt</h2>
+            <p>The exact text encoded into token ids.</p>
+          </div>
+          {promptPreview && (
+            <div className="metrics">
+              <span>{promptPreview.effective_prompt_style}</span>
+              <span>{promptPreview.inference_mode}</span>
+              <span>temp {formatMaybeNumber(promptPreview.temperature)}</span>
+              <span>top-k {formatMaybeNumber(promptPreview.top_k)}</span>
+            </div>
+          )}
+        </div>
+
+        {promptPreview ? (
+          <div className="template-box">
+            <div className="metric-grid">
+              <div className="metric-cell">
+                <span>Prompt tokens</span>
+                <strong>{promptPreview.prompt_tokens}</strong>
+              </div>
+              <div className="metric-cell">
+                <span>Context length</span>
+                <strong>{promptPreview.context_length}</strong>
+              </div>
+              <div className="metric-cell">
+                <span>Remaining context</span>
+                <strong>{promptPreview.remaining_context_tokens}</strong>
+              </div>
+            </div>
+
+            {promptPreview.warnings?.length > 0 && (
+              <div className="warning-list">
+                {promptPreview.warnings.map((warning) => (
+                  <div className="warning-line" key={warning}>
+                    {warning}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <pre>{promptPreview.prompt}</pre>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <Pencil aria-hidden="true" />
+            <span>No prompt preview yet</span>
+          </div>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Generated Reply</h2>
+            <p>Same model, same message, different prompt and decoding choices.</p>
+          </div>
+          {promptPlaygroundResult && (
+            <div className="metrics">
+              <span>prompt tokens {promptPlaygroundResult.prompt_tokens}</span>
+              <span>generated {promptPlaygroundResult.tokens_generated}</span>
+            </div>
+          )}
+        </div>
+
+        {promptPlaygroundResult ? (
+          <div className="output-box">
+            <div className="metrics">
+              <span>{promptPlaygroundResult.prompt_style}</span>
+              <span>{promptPlaygroundResult.inference_mode}</span>
+              <span>temp {formatMaybeNumber(promptPlaygroundResult.temperature)}</span>
+              <span>top-k {formatMaybeNumber(promptPlaygroundResult.top_k)}</span>
+            </div>
+            <pre>{formatText(promptPlaygroundResult.reply)}</pre>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <Play aria-hidden="true" />
+            <span>No generated reply yet</span>
           </div>
         )}
       </section>

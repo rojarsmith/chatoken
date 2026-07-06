@@ -803,6 +803,31 @@ button:focus-visible {
   font-size: 0.9rem;
 }
 
+.playground-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.playground-notes span {
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--muted);
+  padding: 7px 10px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.template-editor {
+  margin-top: 14px;
+}
+
+.warning-list {
+  display: grid;
+  gap: 8px;
+}
+
 .output-box {
   min-width: 0;
   margin-top: 16px;
