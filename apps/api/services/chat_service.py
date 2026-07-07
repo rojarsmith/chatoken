@@ -88,6 +88,31 @@ class ChatService:
     def list_checkpoints(self) -> list[dict]:
         return list_checkpoints(self._checkpoint_dir)
 
+    def model_resource_profile(self, model_id: str) -> dict:
+        if model_id in MODEL_CONFIGS:
+            cfg = MODEL_CONFIGS[model_id]
+            return _model_profile_from_config(
+                model_id=model_id,
+                config=cfg,
+                parameters=count_parameters(GPTModel(cfg.to_dict())),
+                state="loaded-random" if model_id in self._models else "random-untrained",
+                device=str(self._models[model_id].device)
+                if model_id in self._models
+                else "not-loaded",
+            )
+
+        if model_id in self._models:
+            loaded = self._models[model_id]
+            return _model_profile_from_config(
+                model_id=model_id,
+                config=loaded.config,
+                parameters=count_parameters(loaded.model),
+                state=loaded.state,
+                device=str(loaded.device),
+            )
+
+        raise ValueError(f"Unknown model_id: {model_id}")
+
     def load_checkpoint_model(self, checkpoint_id: str, model_id: str | None = None) -> dict:
         checkpoint_path = find_checkpoint(self._checkpoint_dir, checkpoint_id)
         payload = load_checkpoint(checkpoint_path, map_location="cpu")
@@ -356,6 +381,32 @@ class ChatService:
 
 def _project_root() -> Path:
     return Path(__file__).resolve().parents[3]
+
+
+def _model_profile_from_config(
+    *,
+    model_id: str,
+    config: ModelConfig,
+    parameters: int,
+    state: str,
+    device: str,
+) -> dict:
+    return {
+        "model_id": model_id,
+        "description": config.description,
+        "tokenizer": config.tokenizer,
+        "prompt_style": config.prompt_style,
+        "state": state,
+        "device": device,
+        "parameters": parameters,
+        "vocab_size": config.vocab_size,
+        "context_length": config.context_length,
+        "emb_dim": config.emb_dim,
+        "n_heads": config.n_heads,
+        "n_layers": config.n_layers,
+        "drop_rate": config.drop_rate,
+        "qkv_bias": config.qkv_bias,
+    }
 
 
 def _clean_reply(text: str, *, prompt_style: str) -> str:

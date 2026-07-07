@@ -15,6 +15,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from apps.api.services.chat_service import ChatRequestData, ChatService
+from apps.api.services.deployment_service import (
+    DeploymentService,
+    ResourceEstimateRequestData,
+)
 from apps.api.services.external_model_service import (
     ExternalChatRequestData,
     ExternalModelService,
@@ -40,6 +44,7 @@ chat_service = ChatService()
 training_service = TrainingService(chat_service)
 pretrained_service = PretrainedService(chat_service)
 external_model_service = ExternalModelService()
+deployment_service = DeploymentService(chat_service)
 executor = ThreadPoolExecutor(max_workers=1)
 chat_jobs_lock = Lock()
 training_jobs_lock = Lock()
@@ -97,6 +102,17 @@ class ExternalChatRequest(BaseModel):
     ] = "chat"
     prompt_template: str | None = Field(None, max_length=4_000)
     inference_mode: Literal["manual", "greedy", "focused", "creative"] = "manual"
+
+
+class ResourceEstimateRequest(BaseModel):
+    model_id: str = "random-tiny-byte"
+    prompt_tokens: int = Field(32, ge=0, le=8_192)
+    max_new_tokens: int = Field(64, ge=1, le=2_000)
+    concurrent_requests: int = Field(1, ge=1, le=64)
+    precision: Literal["fp32", "fp16", "int8"] = "fp32"
+    include_training: bool = False
+    batch_size: int = Field(4, ge=1, le=64)
+    block_size: int = Field(32, ge=2, le=1_024)
 
 
 class TrainingRequest(BaseModel):
@@ -190,6 +206,19 @@ def list_pretrained_models() -> list[dict]:
 @app.get("/external/models")
 def list_external_models() -> list[dict]:
     return external_model_service.list_models()
+
+
+@app.get("/deployment/profile")
+def deployment_profile() -> dict:
+    return deployment_service.profile(_runtime_info())
+
+
+@app.post("/deployment/estimate")
+def deployment_estimate(request: ResourceEstimateRequest) -> dict:
+    try:
+        return deployment_service.estimate(_to_resource_estimate_request_data(request))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/external/prompt-preview")
@@ -650,6 +679,21 @@ def _to_external_request_data(request: ExternalChatRequest) -> ExternalChatReque
         prompt_style=request.prompt_style,
         prompt_template=request.prompt_template,
         inference_mode=request.inference_mode,
+    )
+
+
+def _to_resource_estimate_request_data(
+    request: ResourceEstimateRequest,
+) -> ResourceEstimateRequestData:
+    return ResourceEstimateRequestData(
+        model_id=request.model_id,
+        prompt_tokens=request.prompt_tokens,
+        max_new_tokens=request.max_new_tokens,
+        concurrent_requests=request.concurrent_requests,
+        precision=request.precision,
+        include_training=request.include_training,
+        batch_size=request.batch_size,
+        block_size=request.block_size,
     )
 
 

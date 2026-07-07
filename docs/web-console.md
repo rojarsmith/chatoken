@@ -16,6 +16,7 @@ checkpoint versions -> experiment comparison -> model selection
 streamed tokens -> cancel running jobs -> responsive UI
 prompt template -> rendered prompt -> inference mode comparison
 local checkpoint -> external provider -> same-prompt comparison
+runtime profile -> resource estimate -> deployment checklist
 ```
 
 ## What Was Added
@@ -26,6 +27,7 @@ local checkpoint -> external provider -> same-prompt comparison
 - Chat view: stream token events from a selected model and cancel the active stream.
 - Prompt Lab view: preview rendered prompts, compare prompt templates, and switch inference modes.
 - External view: compare a local model with a mock, OpenAI-compatible, or Ollama provider.
+- Deploy view: inspect runtime limits and estimate inference/training resource shape.
 - From Scratch view: train the tiny model on small chat-shaped datasets.
 - Raw Text view: train on The Verdict as larger continuation text.
 - GPT-2 view: download and load GPT-2 pretrained weights.
@@ -77,22 +79,23 @@ http://127.0.0.1:3000
 4. Open Prompt Lab, preview the same message with `raw`, `chat`, `instruction`, and `custom`, then compare `greedy`, `focused`, and `creative`.
 5. Open External, use `Mock external model`, and compare it with a local model.
 6. Configure a real provider only after the mock path works.
-7. Open From Scratch and run `every-effort`, then compare before/after.
-8. Open Raw Text; the UI should select `the-verdict` and suggest `random-tiny-byte` plus `trained-verdict-byte`.
-9. Run the The Verdict job to observe raw text continuation on a larger dataset.
-10. Open GPT-2 and load `GPT-2 small`.
-11. Return to Chat and ask an instruction-style request such as `Explain what a model checkpoint is in one sentence.`
-12. Open Instruction; the UI should select `instruction-following` and show the three-step loop: instruction data, GPT-2 base, instruction SFT.
-13. Click `Download dataset` if the instruction data is missing. The panel should then show one dataset example and the formatted Chapter 7 model input.
-14. Load `GPT-2 small`, run instruction SFT, then compare `Before (raw GPT-2)` with `After (instruction SFT)`.
-15. Open LoRA; the UI should select `instruction-lora` and show LoRA adapter training.
-16. Run LoRA and compare trainable parameter percentage against full instruction SFT.
-17. Open Dataset Builder; inspect seeded examples, add a `train` example, and add an `eval` example.
-18. Run custom SFT with `instruction-builder` and compare `Before (GPT-2 base)` with `After (custom SFT)`.
-19. Open Experiments to compare raw pretrained GPT-2, full SFT, LoRA, and custom SFT.
-20. Read the comparison summary before reading generated samples.
-21. Open Checkpoints to inspect model version lineage and load a specific version.
-22. Return to Chat, send a streaming request, and cancel it before `max_new_tokens` is reached.
+7. Open Deploy, estimate `random-tiny-byte`, then increase context and concurrency to see which costs grow.
+8. Open From Scratch and run `every-effort`, then compare before/after.
+9. Open Raw Text; the UI should select `the-verdict` and suggest `random-tiny-byte` plus `trained-verdict-byte`.
+10. Run the The Verdict job to observe raw text continuation on a larger dataset.
+11. Open GPT-2 and load `GPT-2 small`.
+12. Return to Chat and ask an instruction-style request such as `Explain what a model checkpoint is in one sentence.`
+13. Open Instruction; the UI should select `instruction-following` and show the three-step loop: instruction data, GPT-2 base, instruction SFT.
+14. Click `Download dataset` if the instruction data is missing. The panel should then show one dataset example and the formatted Chapter 7 model input.
+15. Load `GPT-2 small`, run instruction SFT, then compare `Before (raw GPT-2)` with `After (instruction SFT)`.
+16. Open LoRA; the UI should select `instruction-lora` and show LoRA adapter training.
+17. Run LoRA and compare trainable parameter percentage against full instruction SFT.
+18. Open Dataset Builder; inspect seeded examples, add a `train` example, and add an `eval` example.
+19. Run custom SFT with `instruction-builder` and compare `Before (GPT-2 base)` with `After (custom SFT)`.
+20. Open Experiments to compare raw pretrained GPT-2, full SFT, LoRA, and custom SFT.
+21. Read the comparison summary before reading generated samples.
+22. Open Checkpoints to inspect model version lineage and load a specific version.
+23. Return to Chat, send a streaming request, and cancel it before `max_new_tokens` is reached.
 
 ## Why This Separation Matters
 
@@ -109,4 +112,5 @@ Model versioning is explained in [Model Versions and Experiment Comparison](mode
 Streaming and cancellation are explained in [Streaming Chat and Job Cancellation](streaming-chat-cancel.md).
 Inference modes and prompt templates are explained in [Inference Modes and Prompt Template Playground](inference-prompt-playground.md).
 External providers are explained in [External Model Integration](external-model-integration.md).
+Deployment resource limits are explained in [Deployment and Resource Limits](deployment-resource-limits.md).
 GPU setup is explained in [GPU Runtime Setup for PyTorch](gpu-runtime.md).

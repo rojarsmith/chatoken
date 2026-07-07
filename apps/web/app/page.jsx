@@ -191,6 +191,7 @@ const TABS = [
   { id: "chat", label: "Chat", icon: Send },
   { id: "prompt-playground", label: "Prompt Lab", icon: Pencil },
   { id: "external", label: "External", icon: Server },
+  { id: "deployment", label: "Deploy", icon: Server },
   { id: "from-scratch", label: "From Scratch", icon: Activity },
   { id: "raw-text", label: "Raw Text", icon: Database },
   { id: "pretrained", label: "GPT-2", icon: Download },
@@ -477,6 +478,21 @@ export default function Home() {
   const [isPreviewingExternal, setIsPreviewingExternal] = useState(false);
   const [isComparingExternal, setIsComparingExternal] = useState(false);
 
+  const [deploymentProfile, setDeploymentProfile] = useState(null);
+  const [deploymentModelId, setDeploymentModelId] = useState("random-tiny-byte");
+  const [deploymentPromptTokens, setDeploymentPromptTokens] = useState(32);
+  const [deploymentMaxNewTokens, setDeploymentMaxNewTokens] = useState(64);
+  const [deploymentConcurrentRequests, setDeploymentConcurrentRequests] =
+    useState(1);
+  const [deploymentPrecision, setDeploymentPrecision] = useState("fp32");
+  const [deploymentIncludeTraining, setDeploymentIncludeTraining] =
+    useState(false);
+  const [deploymentBatchSize, setDeploymentBatchSize] = useState(4);
+  const [deploymentBlockSize, setDeploymentBlockSize] = useState(32);
+  const [deploymentEstimate, setDeploymentEstimate] = useState(null);
+  const [deploymentError, setDeploymentError] = useState("");
+  const [isEstimatingDeployment, setIsEstimatingDeployment] = useState(false);
+
   const [leftModelId, setLeftModelId] = useState("random-tiny-byte");
   const [rightModelId, setRightModelId] = useState("random-tiny-byte");
   const [compareResults, setCompareResults] = useState(null);
@@ -525,6 +541,7 @@ export default function Home() {
       chatModelId,
       playgroundModelId,
       externalLocalModelId,
+      deploymentModelId,
       leftModelId,
       rightModelId,
       baseModelId
@@ -544,6 +561,7 @@ export default function Home() {
   }, [
     baseModelId,
     chatModelId,
+    deploymentModelId,
     externalLocalModelId,
     leftModelId,
     models,
@@ -633,6 +651,9 @@ export default function Home() {
     if (!availableIds.has(externalLocalModelId)) {
       setExternalLocalModelId(fallbackId);
     }
+    if (!availableIds.has(deploymentModelId)) {
+      setDeploymentModelId(fallbackId);
+    }
     if (!availableIds.has(leftModelId)) {
       setLeftModelId(fallbackId);
     }
@@ -642,6 +663,7 @@ export default function Home() {
   }, [
     chatModelId,
     chatModelOptions,
+    deploymentModelId,
     externalLocalModelId,
     leftModelId,
     playgroundModelId,
@@ -778,6 +800,7 @@ export default function Home() {
       modelsResult,
       pretrainedResult,
       externalModelsResult,
+      deploymentProfileResult,
       datasetsResult,
       experimentsResult,
       checkpointsResult,
@@ -787,6 +810,7 @@ export default function Home() {
         requestJson("/models"),
         requestJson("/pretrained/models"),
         requestJson("/external/models"),
+        requestJson("/deployment/profile"),
         requestJson("/training/datasets"),
         requestJson("/training/experiments"),
         requestJson("/checkpoints"),
@@ -801,6 +825,9 @@ export default function Home() {
     }
     if (externalModelsResult.status === "fulfilled") {
       setExternalModels(externalModelsResult.value);
+    }
+    if (deploymentProfileResult.status === "fulfilled") {
+      setDeploymentProfile(deploymentProfileResult.value);
     }
     if (datasetsResult.status === "fulfilled") {
       setDatasets(datasetsResult.value);
@@ -1040,6 +1067,32 @@ export default function Home() {
       external: resultFromSettled(external)
     });
     setIsComparingExternal(false);
+  }
+
+  async function estimateDeploymentResources() {
+    setIsEstimatingDeployment(true);
+    setDeploymentError("");
+
+    try {
+      const estimate = await requestJson("/deployment/estimate", {
+        method: "POST",
+        body: JSON.stringify({
+          model_id: deploymentModelId,
+          prompt_tokens: Number(deploymentPromptTokens),
+          max_new_tokens: Number(deploymentMaxNewTokens),
+          concurrent_requests: Number(deploymentConcurrentRequests),
+          precision: deploymentPrecision,
+          include_training: deploymentIncludeTraining,
+          batch_size: Number(deploymentBatchSize),
+          block_size: Number(deploymentBlockSize)
+        })
+      });
+      setDeploymentEstimate(estimate);
+    } catch (error) {
+      setDeploymentError(error.message);
+    } finally {
+      setIsEstimatingDeployment(false);
+    }
   }
 
   async function compareModels() {
@@ -1540,6 +1593,34 @@ export default function Home() {
               setExternalTemplate={setExternalTemplate}
               setExternalTemperature={setExternalTemperature}
               setExternalTopK={setExternalTopK}
+            />
+          )}
+
+          {activeTab === "deployment" && (
+            <DeploymentView
+              deploymentBatchSize={deploymentBatchSize}
+              deploymentBlockSize={deploymentBlockSize}
+              deploymentConcurrentRequests={deploymentConcurrentRequests}
+              deploymentError={deploymentError}
+              deploymentEstimate={deploymentEstimate}
+              deploymentIncludeTraining={deploymentIncludeTraining}
+              deploymentMaxNewTokens={deploymentMaxNewTokens}
+              deploymentModelId={deploymentModelId}
+              deploymentPrecision={deploymentPrecision}
+              deploymentProfile={deploymentProfile}
+              deploymentPromptTokens={deploymentPromptTokens}
+              estimateDeploymentResources={estimateDeploymentResources}
+              isEstimatingDeployment={isEstimatingDeployment}
+              modelOptions={chatModelOptions}
+              runtimeInfo={runtimeInfo}
+              setDeploymentBatchSize={setDeploymentBatchSize}
+              setDeploymentBlockSize={setDeploymentBlockSize}
+              setDeploymentConcurrentRequests={setDeploymentConcurrentRequests}
+              setDeploymentIncludeTraining={setDeploymentIncludeTraining}
+              setDeploymentMaxNewTokens={setDeploymentMaxNewTokens}
+              setDeploymentModelId={setDeploymentModelId}
+              setDeploymentPrecision={setDeploymentPrecision}
+              setDeploymentPromptTokens={setDeploymentPromptTokens}
             />
           )}
 
@@ -2754,6 +2835,293 @@ function ExternalResultColumn({ result, title }) {
         {result.data.inference_mode && <span>{result.data.inference_mode}</span>}
       </div>
       <pre>{formatText(result.data.reply)}</pre>
+    </div>
+  );
+}
+
+function DeploymentView({
+  deploymentBatchSize,
+  deploymentBlockSize,
+  deploymentConcurrentRequests,
+  deploymentError,
+  deploymentEstimate,
+  deploymentIncludeTraining,
+  deploymentMaxNewTokens,
+  deploymentModelId,
+  deploymentPrecision,
+  deploymentProfile,
+  deploymentPromptTokens,
+  estimateDeploymentResources,
+  isEstimatingDeployment,
+  modelOptions,
+  runtimeInfo,
+  setDeploymentBatchSize,
+  setDeploymentBlockSize,
+  setDeploymentConcurrentRequests,
+  setDeploymentIncludeTraining,
+  setDeploymentMaxNewTokens,
+  setDeploymentModelId,
+  setDeploymentPrecision,
+  setDeploymentPromptTokens
+}) {
+  const limits = deploymentProfile?.limits || {};
+  const deploymentModes = deploymentProfile?.deployment_modes || [];
+  const selectedModel = modelOptions.find(
+    (model) => model.model_id === deploymentModelId
+  );
+
+  return (
+    <div className="view-stack">
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Deployment and Resource Limits</h2>
+            <p>Estimate the practical limits before moving from local learning to serving.</p>
+          </div>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={estimateDeploymentResources}
+            disabled={isEstimatingDeployment}
+          >
+            {isEstimatingDeployment ? (
+              <LoaderCircle aria-hidden="true" className="spin" />
+            ) : (
+              <SlidersHorizontal aria-hidden="true" />
+            )}
+            Estimate
+          </button>
+        </div>
+
+        <div className="metric-grid">
+          <Metric label="Runtime" value={formatRuntimeLabel(runtimeInfo)} />
+          <Metric label="Torch" value={runtimeInfo?.torch_version || "-"} />
+          <Metric label="CUDA" value={runtimeInfo?.cuda_available ? "available" : "not available"} />
+          <Metric label="Chat max tokens" value={limits.chat_max_new_tokens || 200} />
+          <Metric label="Training workers" value={deploymentProfile?.server?.training_executor_workers || 1} />
+          <Metric label="Model lock" value="per local model" />
+        </div>
+
+        <div className="foundation-flow deployment-modes">
+          {deploymentModes.map((mode) => (
+            <article className="foundation-card" key={mode.id}>
+              <span className="tier-label">{mode.id}</span>
+              <h3>{mode.label}</h3>
+              {mode.notes.map((note) => (
+                <p key={note}>{note}</p>
+              ))}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Resource Estimator</h2>
+            <p>Change context, concurrency, precision, and training knobs.</p>
+          </div>
+          {selectedModel && (
+            <div className="metrics">
+              <span>{selectedModel.parameters ? formatNumber(selectedModel.parameters) : "-"} params</span>
+              <span>{selectedModel.context_length || "-"} ctx</span>
+              <span>{selectedModel.state}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="form-grid">
+          <label className="field">
+            <span>Model</span>
+            <select
+              value={deploymentModelId}
+              onChange={(event) => setDeploymentModelId(event.target.value)}
+            >
+              {modelOptions.map((model) => (
+                <option key={model.model_id} value={model.model_id}>
+                  {model.model_id}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Prompt tokens</span>
+            <input
+              type="number"
+              min="0"
+              max="8192"
+              value={deploymentPromptTokens}
+              onChange={(event) => setDeploymentPromptTokens(event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>Max new tokens</span>
+            <input
+              type="number"
+              min="1"
+              max="2000"
+              value={deploymentMaxNewTokens}
+              onChange={(event) => setDeploymentMaxNewTokens(event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>Concurrent requests</span>
+            <input
+              type="number"
+              min="1"
+              max="64"
+              value={deploymentConcurrentRequests}
+              onChange={(event) => setDeploymentConcurrentRequests(event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>Precision</span>
+            <select
+              value={deploymentPrecision}
+              onChange={(event) => setDeploymentPrecision(event.target.value)}
+            >
+              <option value="fp32">fp32</option>
+              <option value="fp16">fp16</option>
+              <option value="int8">int8</option>
+            </select>
+          </label>
+
+          <label className="toggle-row">
+            <input
+              type="checkbox"
+              checked={deploymentIncludeTraining}
+              onChange={(event) => setDeploymentIncludeTraining(event.target.checked)}
+            />
+            Include training estimate
+          </label>
+
+          <label className="field">
+            <span>Batch size</span>
+            <input
+              type="number"
+              min="1"
+              max="64"
+              value={deploymentBatchSize}
+              onChange={(event) => setDeploymentBatchSize(event.target.value)}
+              disabled={!deploymentIncludeTraining}
+            />
+          </label>
+
+          <label className="field">
+            <span>Block size</span>
+            <input
+              type="number"
+              min="2"
+              max="1024"
+              value={deploymentBlockSize}
+              onChange={(event) => setDeploymentBlockSize(event.target.value)}
+              disabled={!deploymentIncludeTraining}
+            />
+          </label>
+        </div>
+
+        {deploymentError && <div className="error-line">{deploymentError}</div>}
+
+        {deploymentEstimate && (
+          <div className="output-box">
+            <h3>Estimated resource shape</h3>
+            <div className="metric-grid">
+              <Metric
+                label="Parameter memory"
+                value={formatBytes(deploymentEstimate.inference.parameter_bytes)}
+              />
+              <Metric
+                label="KV cache concept"
+                value={formatBytes(deploymentEstimate.inference.kv_cache_like_bytes)}
+              />
+              <Metric
+                label="Context work"
+                value={formatBytes(deploymentEstimate.inference.local_context_work_bytes)}
+              />
+              <Metric
+                label="Attention scratch"
+                value={formatBytes(deploymentEstimate.inference.attention_scratch_bytes)}
+              />
+              <Metric
+                label="Inference total"
+                value={formatBytes(deploymentEstimate.inference.total_estimated_bytes)}
+              />
+              <Metric
+                label="Training total"
+                value={formatBytes(deploymentEstimate.training.total_estimated_bytes)}
+              />
+            </div>
+
+            <div className="implementation-map">
+              <div>
+                <span>Effective context</span>
+                <strong>
+                  {deploymentEstimate.request.effective_context_tokens} /{" "}
+                  {deploymentEstimate.model.context_length} tokens
+                </strong>
+              </div>
+              <div>
+                <span>Model shape</span>
+                <strong>
+                  {deploymentEstimate.model.n_layers} layers,{" "}
+                  {deploymentEstimate.model.n_heads} heads, emb{" "}
+                  {deploymentEstimate.model.emb_dim}
+                </strong>
+              </div>
+              <div>
+                <span>Serving caveat</span>
+                <strong>{deploymentEstimate.notes[1]}</strong>
+              </div>
+            </div>
+
+            {deploymentEstimate.warnings.length > 0 && (
+              <div className="warning-list">
+                {deploymentEstimate.warnings.map((warning) => (
+                  <div className="warning-line" key={warning}>
+                    {warning}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Deployment Checklist</h2>
+            <p>Keep these boundaries explicit when packaging the learning app.</p>
+          </div>
+        </div>
+
+        <div className="implementation-map">
+          <div>
+            <span>API process</span>
+            <strong>Run FastAPI from the project `.venv`; model weights and provider secrets stay server-side.</strong>
+          </div>
+          <div>
+            <span>Web process</span>
+            <strong>Build or run the Next.js console with `NEXT_PUBLIC_API_BASE_URL` pointing at the API.</strong>
+          </div>
+          <div>
+            <span>Local models</span>
+            <strong>CPU is enough for tiny lessons; GPT-2 fine-tuning needs CUDA for reasonable time.</strong>
+          </div>
+          <div>
+            <span>External models</span>
+            <strong>External providers remove local model memory pressure but add network latency, cost, and rate limits.</strong>
+          </div>
+          <div>
+            <span>Training jobs</span>
+            <strong>The current teaching backend runs one training/pretrained job worker, keeping behavior simple and observable.</strong>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
