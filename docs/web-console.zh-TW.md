@@ -15,6 +15,7 @@ custom instruction examples -> train/eval split -> custom SFT
 checkpoint versions -> experiment comparison -> model selection
 streamed tokens -> cancel running jobs -> responsive UI
 prompt template -> rendered prompt -> inference mode comparison
+local checkpoint -> external provider -> same-prompt comparison
 ```
 
 ## 新增內容
@@ -24,6 +25,7 @@ prompt template -> rendered prompt -> inference mode comparison
 - Training Config view：學習 TrainingConfig 參數如何改變訓練迴圈。
 - Chat view：從指定模型串流 token events，並可取消目前 stream。
 - Prompt Lab view：預覽 rendered prompt、比較 prompt templates，並切換 inference modes。
+- External view：比較 local model 與 mock、OpenAI-compatible 或 Ollama provider。
 - From Scratch view：用小型 chat-shaped datasets 訓練 tiny model。
 - Raw Text view：用 The Verdict 做較大的 continuation text 訓練。
 - GPT-2 view：下載並載入 GPT-2 pretrained weights。
@@ -73,22 +75,24 @@ http://127.0.0.1:3000
 2. 打開 Training Config，調整 `max_steps`、`batch_size`、`block_size`、`learning_rate`、`eval_every`。
 3. 打開 Chat，送 `Every effort moves you` 給 `random-tiny-byte`。
 4. 打開 Prompt Lab，用同一個 message 預覽 `raw`、`chat`、`instruction`、`custom`，再比較 `greedy`、`focused`、`creative`。
-5. 打開 From Scratch，跑 `every-effort`，比較 before/after。
-6. 打開 Raw Text；UI 應該選到 `the-verdict`，並建議 `random-tiny-byte` 和 `trained-verdict-byte`。
-7. 跑 The Verdict job，觀察較大資料上的 raw text continuation。
-8. 打開 GPT-2，載入 `GPT-2 small`。
-9. 回到 Chat，問一個 instruction-style request，例如 `Explain what a model checkpoint is in one sentence.`
-10. 打開 Instruction；UI 應該選到 `instruction-following`，並顯示三步驟閉環：instruction data、GPT-2 base、instruction SFT。
-11. 如果 instruction data 還不存在，按 `Download dataset`。面板接著應該顯示一筆 dataset example 和格式化後的 Chapter 7 model input。
-12. 載入 `GPT-2 small`，執行 instruction SFT，然後比較 `Before (raw GPT-2)` 和 `After (instruction SFT)`。
-13. 打開 LoRA；UI 應該選到 `instruction-lora`，並顯示 LoRA adapter training。
-14. 執行 LoRA，並比較 trainable parameter percentage 和 full instruction SFT 的差異。
-15. 打開 Dataset Builder；檢視種子資料，新增一筆 `train` 範例與一筆 `eval` 範例。
-16. 使用 `instruction-builder` 執行 custom SFT，並比較 `Before (GPT-2 base)` 與 `After (custom SFT)`。
-17. 打開 Experiments，比較 raw pretrained GPT-2、full SFT、LoRA 和 custom SFT。
-18. 先讀 comparison summary，再讀 generated samples。
-19. 打開 Checkpoints，檢視 model version lineage 並載入指定版本。
-20. 回到 Chat，送出 streaming request，並在到達 `max_new_tokens` 前取消。
+5. 打開 External，先用 `Mock external model` 和 local model 比較。
+6. mock path 確認可用後，再設定真正 provider。
+7. 打開 From Scratch，跑 `every-effort`，比較 before/after。
+8. 打開 Raw Text；UI 應該選到 `the-verdict`，並建議 `random-tiny-byte` 和 `trained-verdict-byte`。
+9. 跑 The Verdict job，觀察較大資料上的 raw text continuation。
+10. 打開 GPT-2，載入 `GPT-2 small`。
+11. 回到 Chat，問一個 instruction-style request，例如 `Explain what a model checkpoint is in one sentence.`
+12. 打開 Instruction；UI 應該選到 `instruction-following`，並顯示三步驟閉環：instruction data、GPT-2 base、instruction SFT。
+13. 如果 instruction data 還不存在，按 `Download dataset`。面板接著應該顯示一筆 dataset example 和格式化後的 Chapter 7 model input。
+14. 載入 `GPT-2 small`，執行 instruction SFT，然後比較 `Before (raw GPT-2)` 和 `After (instruction SFT)`。
+15. 打開 LoRA；UI 應該選到 `instruction-lora`，並顯示 LoRA adapter training。
+16. 執行 LoRA，並比較 trainable parameter percentage 和 full instruction SFT 的差異。
+17. 打開 Dataset Builder；檢視種子資料，新增一筆 `train` 範例與一筆 `eval` 範例。
+18. 使用 `instruction-builder` 執行 custom SFT，並比較 `Before (GPT-2 base)` 與 `After (custom SFT)`。
+19. 打開 Experiments，比較 raw pretrained GPT-2、full SFT、LoRA 和 custom SFT。
+20. 先讀 comparison summary，再讀 generated samples。
+21. 打開 Checkpoints，檢視 model version lineage 並載入指定版本。
+22. 回到 Chat，送出 streaming request，並在到達 `max_new_tokens` 前取消。
 
 ## 為什麼要分開
 
@@ -104,4 +108,5 @@ Dataset Builder 請看 [訓練資料管理與 Dataset Builder](dataset-builder.z
 模型版本請看 [模型版本與實驗比較強化](model-version-experiment-comparison.zh-TW.md)。
 Streaming 與取消任務請看 [Streaming Chat 與取消任務](streaming-chat-cancel.zh-TW.md)。
 推論模式與 prompt templates 請看 [推論模式與 Prompt Template Playground](inference-prompt-playground.zh-TW.md)。
+外部 provider 請看 [外部模型整合](external-model-integration.zh-TW.md)。
 GPU 設定請看 [PyTorch GPU Runtime 設定](gpu-runtime.zh-TW.md)。

@@ -49,6 +49,19 @@ const FALLBACK_MODELS = [
   }
 ];
 
+const FALLBACK_EXTERNAL_MODELS = [
+  {
+    model_id: "mock-echo",
+    provider: "mock",
+    provider_model_name: "mock-echo",
+    label: "Mock external model",
+    description: "Offline provider used to verify external-model wiring.",
+    state: "available",
+    requires_api_key: false,
+    base_url: "local"
+  }
+];
+
 const LEARNING_STAGES = {
   "from-scratch": {
     id: "from-scratch",
@@ -177,6 +190,7 @@ const TABS = [
   { id: "training-knobs", label: "Training Config", icon: SlidersHorizontal },
   { id: "chat", label: "Chat", icon: Send },
   { id: "prompt-playground", label: "Prompt Lab", icon: Pencil },
+  { id: "external", label: "External", icon: Server },
   { id: "from-scratch", label: "From Scratch", icon: Activity },
   { id: "raw-text", label: "Raw Text", icon: Database },
   { id: "pretrained", label: "GPT-2", icon: Download },
@@ -441,6 +455,28 @@ export default function Home() {
   const [isRunningPromptPlayground, setIsRunningPromptPlayground] =
     useState(false);
 
+  const [externalModels, setExternalModels] = useState([]);
+  const [externalModelId, setExternalModelId] = useState("mock-echo");
+  const [externalLocalModelId, setExternalLocalModelId] =
+    useState("random-tiny-byte");
+  const [externalMessage, setExternalMessage] = useState(GPT2_INSTRUCTION_MESSAGE);
+  const [externalSystemPrompt, setExternalSystemPrompt] = useState(
+    "You are a concise assistant."
+  );
+  const [externalPromptStyle, setExternalPromptStyle] = useState("chat");
+  const [externalTemplate, setExternalTemplate] = useState(
+    PROMPT_PLAYGROUND_TEMPLATE
+  );
+  const [externalInferenceMode, setExternalInferenceMode] = useState("manual");
+  const [externalMaxNewTokens, setExternalMaxNewTokens] = useState(96);
+  const [externalTemperature, setExternalTemperature] = useState(0);
+  const [externalTopK, setExternalTopK] = useState("");
+  const [externalPreview, setExternalPreview] = useState(null);
+  const [externalCompareResults, setExternalCompareResults] = useState(null);
+  const [externalError, setExternalError] = useState("");
+  const [isPreviewingExternal, setIsPreviewingExternal] = useState(false);
+  const [isComparingExternal, setIsComparingExternal] = useState(false);
+
   const [leftModelId, setLeftModelId] = useState("random-tiny-byte");
   const [rightModelId, setRightModelId] = useState("random-tiny-byte");
   const [compareResults, setCompareResults] = useState(null);
@@ -488,6 +524,7 @@ export default function Home() {
     [
       chatModelId,
       playgroundModelId,
+      externalLocalModelId,
       leftModelId,
       rightModelId,
       baseModelId
@@ -504,11 +541,29 @@ export default function Home() {
       }
     });
     return Array.from(byId.values());
-  }, [baseModelId, chatModelId, leftModelId, models, playgroundModelId, rightModelId]);
+  }, [
+    baseModelId,
+    chatModelId,
+    externalLocalModelId,
+    leftModelId,
+    models,
+    playgroundModelId,
+    rightModelId
+  ]);
   const chatModelOptions = useMemo(() => {
     const options = modelOptions.filter((model) => model.state !== "not-loaded");
     return options.length > 0 ? options : FALLBACK_MODELS;
   }, [modelOptions]);
+  const externalModelOptions = useMemo(
+    () => (externalModels.length > 0 ? externalModels : FALLBACK_EXTERNAL_MODELS),
+    [externalModels]
+  );
+  const selectedExternalModel = useMemo(
+    () =>
+      externalModelOptions.find((model) => model.model_id === externalModelId) ||
+      externalModelOptions[0],
+    [externalModelId, externalModelOptions]
+  );
 
   const lastProgress = trainingJob?.progress?.at(-1);
   const progressPercent = lastProgress
@@ -575,13 +630,31 @@ export default function Home() {
     if (!availableIds.has(playgroundModelId)) {
       setPlaygroundModelId(fallbackId);
     }
+    if (!availableIds.has(externalLocalModelId)) {
+      setExternalLocalModelId(fallbackId);
+    }
     if (!availableIds.has(leftModelId)) {
       setLeftModelId(fallbackId);
     }
     if (!availableIds.has(rightModelId)) {
       setRightModelId(fallbackId);
     }
-  }, [chatModelId, chatModelOptions, leftModelId, playgroundModelId, rightModelId]);
+  }, [
+    chatModelId,
+    chatModelOptions,
+    externalLocalModelId,
+    leftModelId,
+    playgroundModelId,
+    rightModelId
+  ]);
+
+  useEffect(() => {
+    const availableIds = new Set(externalModelOptions.map((model) => model.model_id));
+    const fallbackId = externalModelOptions[0]?.model_id || "mock-echo";
+    if (!availableIds.has(externalModelId)) {
+      setExternalModelId(fallbackId);
+    }
+  }, [externalModelId, externalModelOptions]);
 
   useEffect(() => {
     refreshAll();
@@ -607,6 +680,7 @@ export default function Home() {
           if (job.result?.loaded_model?.model_id) {
             setChatModelId(job.result.loaded_model.model_id);
             setPlaygroundModelId(job.result.loaded_model.model_id);
+            setExternalLocalModelId(job.result.loaded_model.model_id);
             setRightModelId(job.result.loaded_model.model_id);
             setBaseModelId(job.result.loaded_model.model_id);
           }
@@ -644,10 +718,12 @@ export default function Home() {
           if (job.result?.model_id) {
             setChatModelId(job.result.model_id);
             setPlaygroundModelId(job.result.model_id);
+            setExternalLocalModelId(job.result.model_id);
             setRightModelId(job.result.model_id);
             setBaseModelId(job.result.model_id);
             setMessage(GPT2_INSTRUCTION_MESSAGE);
             setPlaygroundMessage(GPT2_INSTRUCTION_MESSAGE);
+            setExternalMessage(GPT2_INSTRUCTION_MESSAGE);
           }
         }
       } catch (error) {
@@ -701,6 +777,7 @@ export default function Home() {
     const [
       modelsResult,
       pretrainedResult,
+      externalModelsResult,
       datasetsResult,
       experimentsResult,
       checkpointsResult,
@@ -709,6 +786,7 @@ export default function Home() {
       await Promise.allSettled([
         requestJson("/models"),
         requestJson("/pretrained/models"),
+        requestJson("/external/models"),
         requestJson("/training/datasets"),
         requestJson("/training/experiments"),
         requestJson("/checkpoints"),
@@ -720,6 +798,9 @@ export default function Home() {
     }
     if (pretrainedResult.status === "fulfilled") {
       setPretrainedModels(pretrainedResult.value);
+    }
+    if (externalModelsResult.status === "fulfilled") {
+      setExternalModels(externalModelsResult.value);
     }
     if (datasetsResult.status === "fulfilled") {
       setDatasets(datasetsResult.value);
@@ -888,6 +969,77 @@ export default function Home() {
     } finally {
       setIsRunningPromptPlayground(false);
     }
+  }
+
+  function externalPayload() {
+    const topK = `${externalTopK}`.trim();
+    return {
+      provider: selectedExternalModel?.provider || "mock",
+      model_id: selectedExternalModel?.model_id || "mock-echo",
+      message: externalMessage,
+      system_prompt: externalSystemPrompt,
+      max_new_tokens: Number(externalMaxNewTokens),
+      temperature: Number(externalTemperature),
+      top_k: topK ? Number(topK) : null,
+      prompt_style: externalPromptStyle,
+      prompt_template: externalPromptStyle === "custom" ? externalTemplate : null,
+      inference_mode: externalInferenceMode
+    };
+  }
+
+  function localPayloadForExternalCompare() {
+    const topK = `${externalTopK}`.trim();
+    return {
+      model_id: externalLocalModelId,
+      message: externalMessage,
+      max_new_tokens: Number(externalMaxNewTokens),
+      temperature: Number(externalTemperature),
+      top_k: topK ? Number(topK) : null,
+      include_prompt: false,
+      prompt_style: externalPromptStyle,
+      prompt_template: externalPromptStyle === "custom" ? externalTemplate : null,
+      inference_mode: externalInferenceMode
+    };
+  }
+
+  async function previewExternalModel() {
+    setIsPreviewingExternal(true);
+    setExternalError("");
+
+    try {
+      const preview = await requestJson("/external/prompt-preview", {
+        method: "POST",
+        body: JSON.stringify(externalPayload())
+      });
+      setExternalPreview(preview);
+    } catch (error) {
+      setExternalError(error.message);
+    } finally {
+      setIsPreviewingExternal(false);
+    }
+  }
+
+  async function compareExternalModel() {
+    setIsComparingExternal(true);
+    setExternalError("");
+    setExternalCompareResults(null);
+
+    const [local, external] = await Promise.allSettled([
+      requestJson("/chat", {
+        method: "POST",
+        body: JSON.stringify(localPayloadForExternalCompare())
+      }),
+      requestJson("/external/chat", {
+        method: "POST",
+        body: JSON.stringify(externalPayload())
+      })
+    ]);
+
+    setExternalCompareResults({
+      local: resultFromSettled(local),
+      external: resultFromSettled(external)
+    });
+    setIsComparingExternal(false);
   }
 
   async function compareModels() {
@@ -1151,6 +1303,9 @@ export default function Home() {
     setPlaygroundMessage(
       dataset.comparison_prompt || dataset.sample_prompt || playgroundMessage
     );
+    setExternalMessage(
+      dataset.comparison_prompt || dataset.sample_prompt || externalMessage
+    );
   }
 
   async function loadCheckpoint(checkpoint) {
@@ -1168,6 +1323,7 @@ export default function Home() {
       await refreshAll();
       setChatModelId(loaded.model_id);
       setPlaygroundModelId(loaded.model_id);
+      setExternalLocalModelId(loaded.model_id);
       setRightModelId(loaded.model_id);
       setBaseModelId(loaded.model_id);
       setActiveTab("chat");
@@ -1193,11 +1349,15 @@ export default function Home() {
       await refreshAll();
       setChatModelId(loaded.model_id);
       setPlaygroundModelId(loaded.model_id);
+      setExternalLocalModelId(loaded.model_id);
       setRightModelId(loaded.model_id);
       setBaseModelId(loaded.model_id);
       setMessage(experiment.comparison_prompt || experiment.sample_prompt || message);
       setPlaygroundMessage(
         experiment.comparison_prompt || experiment.sample_prompt || playgroundMessage
+      );
+      setExternalMessage(
+        experiment.comparison_prompt || experiment.sample_prompt || externalMessage
       );
       setActiveTab("chat");
     } catch (error) {
@@ -1343,6 +1503,43 @@ export default function Home() {
               setPlaygroundTemplate={setPlaygroundTemplate}
               setPlaygroundTemperature={setPlaygroundTemperature}
               setPlaygroundTopK={setPlaygroundTopK}
+            />
+          )}
+
+          {activeTab === "external" && (
+            <ExternalModelView
+              compareExternalModel={compareExternalModel}
+              externalCompareResults={externalCompareResults}
+              externalError={externalError}
+              externalInferenceMode={externalInferenceMode}
+              externalLocalModelId={externalLocalModelId}
+              externalMaxNewTokens={externalMaxNewTokens}
+              externalMessage={externalMessage}
+              externalModelId={externalModelId}
+              externalModelOptions={externalModelOptions}
+              externalPreview={externalPreview}
+              externalPromptStyle={externalPromptStyle}
+              externalSystemPrompt={externalSystemPrompt}
+              externalTemplate={externalTemplate}
+              externalTemperature={externalTemperature}
+              externalTopK={externalTopK}
+              inferenceModeOptions={INFERENCE_MODE_OPTIONS}
+              isComparingExternal={isComparingExternal}
+              isPreviewingExternal={isPreviewingExternal}
+              localModelOptions={chatModelOptions}
+              previewExternalModel={previewExternalModel}
+              promptStyleOptions={PROMPT_STYLE_OPTIONS}
+              selectedExternalModel={selectedExternalModel}
+              setExternalInferenceMode={setExternalInferenceMode}
+              setExternalLocalModelId={setExternalLocalModelId}
+              setExternalMaxNewTokens={setExternalMaxNewTokens}
+              setExternalMessage={setExternalMessage}
+              setExternalModelId={setExternalModelId}
+              setExternalPromptStyle={setExternalPromptStyle}
+              setExternalSystemPrompt={setExternalSystemPrompt}
+              setExternalTemplate={setExternalTemplate}
+              setExternalTemperature={setExternalTemperature}
+              setExternalTopK={setExternalTopK}
             />
           )}
 
@@ -2214,6 +2411,349 @@ function PromptPlaygroundView({
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function ExternalModelView({
+  compareExternalModel,
+  externalCompareResults,
+  externalError,
+  externalInferenceMode,
+  externalLocalModelId,
+  externalMaxNewTokens,
+  externalMessage,
+  externalModelId,
+  externalModelOptions,
+  externalPreview,
+  externalPromptStyle,
+  externalSystemPrompt,
+  externalTemplate,
+  externalTemperature,
+  externalTopK,
+  inferenceModeOptions,
+  isComparingExternal,
+  isPreviewingExternal,
+  localModelOptions,
+  previewExternalModel,
+  promptStyleOptions,
+  selectedExternalModel,
+  setExternalInferenceMode,
+  setExternalLocalModelId,
+  setExternalMaxNewTokens,
+  setExternalMessage,
+  setExternalModelId,
+  setExternalPromptStyle,
+  setExternalSystemPrompt,
+  setExternalTemplate,
+  setExternalTemperature,
+  setExternalTopK
+}) {
+  const manualMode = externalInferenceMode === "manual";
+  const selectedInferenceMode = inferenceModeOptions.find(
+    (mode) => mode.value === externalInferenceMode
+  );
+  const selectedPromptStyle = promptStyleOptions.find(
+    (style) => style.value === externalPromptStyle
+  );
+
+  return (
+    <div className="view-stack">
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>External Model Integration</h2>
+            <p>Compare a local checkpoint with a provider-backed model.</p>
+          </div>
+          <div className="button-row">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={previewExternalModel}
+              disabled={isPreviewingExternal || !externalMessage.trim()}
+            >
+              {isPreviewingExternal ? (
+                <LoaderCircle aria-hidden="true" className="spin" />
+              ) : (
+                <Pencil aria-hidden="true" />
+              )}
+              Preview
+            </button>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={compareExternalModel}
+              disabled={isComparingExternal || !externalMessage.trim()}
+            >
+              {isComparingExternal ? (
+                <LoaderCircle aria-hidden="true" className="spin" />
+              ) : (
+                <GitCompareArrows aria-hidden="true" />
+              )}
+              Compare
+            </button>
+          </div>
+        </div>
+
+        <div className="foundation-flow">
+          {externalModelOptions.map((model) => (
+            <button
+              className={
+                externalModelId === model.model_id
+                  ? "dataset-card active"
+                  : "dataset-card"
+              }
+              key={`${model.provider}-${model.model_id}`}
+              type="button"
+              onClick={() => setExternalModelId(model.model_id)}
+            >
+              <div className="dataset-card-heading">
+                <span className={`state ${stateClass(model.state)}`}>
+                  {model.state}
+                </span>
+                <h3>{model.label}</h3>
+              </div>
+              <p>{model.description}</p>
+              <div className="dataset-meta">
+                <span>{model.provider}</span>
+                <span>{model.provider_model_name || "model unset"}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="form-grid">
+          <label className="field wide">
+            <span>Message</span>
+            <textarea
+              value={externalMessage}
+              onChange={(event) => setExternalMessage(event.target.value)}
+              rows={4}
+            />
+          </label>
+
+          <label className="field wide">
+            <span>System prompt</span>
+            <textarea
+              value={externalSystemPrompt}
+              onChange={(event) => setExternalSystemPrompt(event.target.value)}
+              rows={2}
+            />
+          </label>
+
+          <label className="field">
+            <span>Local model</span>
+            <select
+              value={externalLocalModelId}
+              onChange={(event) => setExternalLocalModelId(event.target.value)}
+            >
+              {localModelOptions.map((model) => (
+                <option key={model.model_id} value={model.model_id}>
+                  {model.model_id}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>External model</span>
+            <select
+              value={externalModelId}
+              onChange={(event) => setExternalModelId(event.target.value)}
+            >
+              {externalModelOptions.map((model) => (
+                <option key={`${model.provider}-${model.model_id}`} value={model.model_id}>
+                  {formatExternalModelLabel(model)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Prompt style</span>
+            <select
+              value={externalPromptStyle}
+              onChange={(event) => setExternalPromptStyle(event.target.value)}
+            >
+              {promptStyleOptions.map((style) => (
+                <option key={style.value} value={style.value}>
+                  {style.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Inference mode</span>
+            <select
+              value={externalInferenceMode}
+              onChange={(event) => setExternalInferenceMode(event.target.value)}
+            >
+              {inferenceModeOptions.map((mode) => (
+                <option key={mode.value} value={mode.value}>
+                  {mode.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Max tokens</span>
+            <input
+              type="number"
+              min="1"
+              max="2000"
+              value={externalMaxNewTokens}
+              onChange={(event) => setExternalMaxNewTokens(event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>Temperature</span>
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="0.1"
+              value={externalTemperature}
+              onChange={(event) => setExternalTemperature(event.target.value)}
+              disabled={!manualMode}
+            />
+            <strong>{Number(externalTemperature).toFixed(1)}</strong>
+          </label>
+
+          <label className="field">
+            <span>Top-k</span>
+            <input
+              type="number"
+              min="1"
+              max="200"
+              value={externalTopK}
+              onChange={(event) => setExternalTopK(event.target.value)}
+              placeholder="none"
+              disabled={!manualMode}
+            />
+          </label>
+        </div>
+
+        <div className="playground-notes">
+          <span>{selectedExternalModel?.base_url || "base URL unset"}</span>
+          {selectedPromptStyle && <span>{selectedPromptStyle.detail}</span>}
+          {selectedInferenceMode && <span>{selectedInferenceMode.detail}</span>}
+        </div>
+
+        {externalPromptStyle === "custom" && (
+          <label className="field template-editor">
+            <span>Custom template</span>
+            <textarea
+              value={externalTemplate}
+              onChange={(event) => setExternalTemplate(event.target.value)}
+              rows={5}
+            />
+          </label>
+        )}
+
+        {externalError && <div className="error-line">{externalError}</div>}
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>External Request Preview</h2>
+            <p>The request shape sent by the API server to the provider.</p>
+          </div>
+          {externalPreview && (
+            <div className="metrics">
+              <span>{externalPreview.provider}</span>
+              <span>{externalPreview.prompt_style}</span>
+              <span>{externalPreview.inference_mode}</span>
+              <span>est tokens {externalPreview.estimated_prompt_tokens}</span>
+            </div>
+          )}
+        </div>
+
+        {externalPreview ? (
+          <div className="comparison-grid">
+            <div className="template-box">
+              <h3>Rendered prompt</h3>
+              <pre>{externalPreview.prompt}</pre>
+            </div>
+            <div className="template-box">
+              <h3>Messages payload</h3>
+              <pre>{JSON.stringify(externalPreview.messages, null, 2)}</pre>
+            </div>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <Server aria-hidden="true" />
+            <span>No external request preview yet</span>
+          </div>
+        )}
+
+        {externalPreview?.unsupported_settings?.length > 0 && (
+          <div className="warning-list">
+            {externalPreview.unsupported_settings.map((warning) => (
+              <div className="warning-line" key={warning}>
+                {warning}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Local vs External</h2>
+            <p>Run the same message against both sides.</p>
+          </div>
+        </div>
+
+        {externalCompareResults ? (
+          <div className="comparison-grid">
+            <ExternalResultColumn
+              result={externalCompareResults.local}
+              title={externalLocalModelId}
+            />
+            <ExternalResultColumn
+              result={externalCompareResults.external}
+              title={formatExternalModelLabel(selectedExternalModel)}
+            />
+          </div>
+        ) : (
+          <div className="empty-state">
+            <GitCompareArrows aria-hidden="true" />
+            <span>No comparison yet</span>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ExternalResultColumn({ result, title }) {
+  if (result.error) {
+    return (
+      <div className="output-box">
+        <h3>{title}</h3>
+        <div className="error-line">{result.error}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="output-box">
+      <h3>{title}</h3>
+      <div className="metrics">
+        <span>prompt {formatMaybeNumber(result.data.prompt_tokens)}</span>
+        {result.data.estimated_prompt_tokens && (
+          <span>est {result.data.estimated_prompt_tokens}</span>
+        )}
+        <span>generated {formatMaybeNumber(result.data.tokens_generated)}</span>
+        {result.data.latency_ms && <span>{result.data.latency_ms} ms</span>}
+        {result.data.inference_mode && <span>{result.data.inference_mode}</span>}
+      </div>
+      <pre>{formatText(result.data.reply)}</pre>
     </div>
   );
 }
@@ -3658,6 +4198,14 @@ function formatNumber(value) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
+function formatExternalModelLabel(model) {
+  if (!model) {
+    return "external model";
+  }
+  const providerModel = model.provider_model_name || "model unset";
+  return `${model.label} / ${providerModel}`;
+}
+
 function estimateTextWindows(tokenCount, blockSize, stride) {
   if (!tokenCount || !blockSize || tokenCount <= blockSize) {
     return 0;
@@ -3731,13 +4279,13 @@ function formatBytes(value) {
 }
 
 function stateClass(status) {
-  if (status === "succeeded") {
+  if (["available", "configured", "succeeded"].includes(status)) {
     return "good";
   }
-  if (status === "failed") {
+  if (["failed", "missing-config", "missing-api-key", "missing-model"].includes(status)) {
     return "bad";
   }
-  if (status === "cancelled") {
+  if (["cancelled", "disabled"].includes(status)) {
     return "muted";
   }
   return "active-state";

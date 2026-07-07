@@ -177,6 +177,7 @@ npm run dev
 - [Model Versions and Experiment Comparison](docs/model-version-experiment-comparison.md)
 - [Streaming Chat and Job Cancellation](docs/streaming-chat-cancel.md)
 - [Inference Modes and Prompt Template Playground](docs/inference-prompt-playground.md)
+- [External Model Integration](docs/external-model-integration.md)
 - [GPU Runtime Setup for PyTorch](docs/gpu-runtime.md)
 - [`smoke_train.py` 繁體中文說明](docs/smoke-train.zh-TW.md)
 - [繁體中文學習驗證清單](docs/learning-experience.zh-TW.md)
@@ -191,4 +192,5 @@ npm run dev
 - [模型版本與實驗比較強化](docs/model-version-experiment-comparison.zh-TW.md)
 - [Streaming Chat 與取消任務](docs/streaming-chat-cancel.zh-TW.md)
 - [推論模式與 Prompt Template Playground](docs/inference-prompt-playground.zh-TW.md)
+- [外部模型整合](docs/external-model-integration.zh-TW.md)
 - [PyTorch GPU Runtime 設定](docs/gpu-runtime.zh-TW.md)

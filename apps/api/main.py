@@ -15,6 +15,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from apps.api.services.chat_service import ChatRequestData, ChatService
+from apps.api.services.external_model_service import (
+    ExternalChatRequestData,
+    ExternalModelService,
+)
 from apps.api.services.pretrained_service import PretrainedService
 from apps.api.services.training_service import TrainingRequestData, TrainingService
 
@@ -35,6 +39,7 @@ app.add_middleware(
 chat_service = ChatService()
 training_service = TrainingService(chat_service)
 pretrained_service = PretrainedService(chat_service)
+external_model_service = ExternalModelService()
 executor = ThreadPoolExecutor(max_workers=1)
 chat_jobs_lock = Lock()
 training_jobs_lock = Lock()
@@ -70,6 +75,28 @@ class ChatResponse(BaseModel):
     inference_mode: str | None = None
     temperature: float | None = None
     top_k: int | None = None
+
+
+class ExternalChatRequest(BaseModel):
+    message: str = Field(..., min_length=1)
+    provider: Literal["mock", "openai-compatible", "ollama"] = "mock"
+    model_id: str = "mock-echo"
+    system_prompt: str = Field(
+        "You are a concise assistant.",
+        max_length=2_000,
+    )
+    max_new_tokens: int = Field(128, ge=1, le=2_000)
+    temperature: float = Field(0.0, ge=0.0, le=2.0)
+    top_k: int | None = Field(None, ge=1, le=200)
+    prompt_style: Literal[
+        "model-default",
+        "raw",
+        "chat",
+        "instruction",
+        "custom",
+    ] = "chat"
+    prompt_template: str | None = Field(None, max_length=4_000)
+    inference_mode: Literal["manual", "greedy", "focused", "creative"] = "manual"
 
 
 class TrainingRequest(BaseModel):
@@ -158,6 +185,27 @@ def list_models() -> list[dict]:
 @app.get("/pretrained/models")
 def list_pretrained_models() -> list[dict]:
     return pretrained_service.list_models()
+
+
+@app.get("/external/models")
+def list_external_models() -> list[dict]:
+    return external_model_service.list_models()
+
+
+@app.post("/external/prompt-preview")
+def preview_external_prompt(request: ExternalChatRequest) -> dict:
+    try:
+        return external_model_service.preview_prompt(_to_external_request_data(request))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/external/chat")
+def external_chat(request: ExternalChatRequest) -> dict:
+    try:
+        return external_model_service.generate_reply(_to_external_request_data(request))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/pretrained/jobs")
@@ -584,6 +632,21 @@ def _to_request_data(request: ChatRequest) -> ChatRequestData:
         temperature=request.temperature,
         top_k=request.top_k,
         include_prompt=request.include_prompt,
+        prompt_style=request.prompt_style,
+        prompt_template=request.prompt_template,
+        inference_mode=request.inference_mode,
+    )
+
+
+def _to_external_request_data(request: ExternalChatRequest) -> ExternalChatRequestData:
+    return ExternalChatRequestData(
+        message=request.message,
+        provider=request.provider,
+        model_id=request.model_id,
+        system_prompt=request.system_prompt,
+        max_new_tokens=request.max_new_tokens,
+        temperature=request.temperature,
+        top_k=request.top_k,
         prompt_style=request.prompt_style,
         prompt_template=request.prompt_template,
         inference_mode=request.inference_mode,
