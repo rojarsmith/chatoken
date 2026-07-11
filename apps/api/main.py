@@ -15,6 +15,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from apps.api.services.chat_service import ChatRequestData, ChatService
+from apps.api.services.conversation_service import (
+    ConversationCreateRequestData,
+    ConversationService,
+    ConversationTurnRequestData,
+)
 from apps.api.services.deployment_service import (
     DeploymentService,
     ResourceEstimateRequestData,
@@ -45,6 +50,7 @@ training_service = TrainingService(chat_service)
 pretrained_service = PretrainedService(chat_service)
 external_model_service = ExternalModelService()
 deployment_service = DeploymentService(chat_service)
+conversation_service = ConversationService(chat_service)
 executor = ThreadPoolExecutor(max_workers=1)
 chat_jobs_lock = Lock()
 training_jobs_lock = Lock()
@@ -84,8 +90,8 @@ class ChatResponse(BaseModel):
 
 class ExternalChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
-    provider: Literal["mock", "openai-compatible", "ollama"] = "mock"
-    model_id: str = "mock-echo"
+    provider: Literal["openai-compatible", "ollama"] = "openai-compatible"
+    model_id: str = "openai-compatible"
     system_prompt: str = Field(
         "You are a concise assistant.",
         max_length=2_000,
@@ -113,6 +119,39 @@ class ResourceEstimateRequest(BaseModel):
     include_training: bool = False
     batch_size: int = Field(4, ge=1, le=64)
     block_size: int = Field(32, ge=2, le=1_024)
+
+
+class ConversationCreateRequest(BaseModel):
+    title: str = Field("New conversation", min_length=1, max_length=120)
+    model_id: str = "random-tiny-byte"
+    system_prompt: str = Field(
+        "You are a concise assistant.",
+        max_length=2_000,
+    )
+    max_history_messages: int = Field(8, ge=1, le=40)
+    context_token_budget: int = Field(256, ge=1, le=8_192)
+    context_format: Literal["chat-transcript", "instruction-request"] = "chat-transcript"
+    max_new_tokens: int = Field(32, ge=1, le=200)
+    temperature: float = Field(0.0, ge=0.0, le=2.0)
+    top_k: int | None = Field(None, ge=1, le=200)
+    inference_mode: Literal["manual", "greedy", "focused", "creative"] = "manual"
+
+
+class ConversationTurnRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=4_000)
+    model_id: str = "random-tiny-byte"
+    system_prompt: str = Field(
+        "You are a concise assistant.",
+        max_length=2_000,
+    )
+    max_history_messages: int = Field(8, ge=1, le=40)
+    context_token_budget: int = Field(256, ge=1, le=8_192)
+    context_format: Literal["chat-transcript", "instruction-request"] = "chat-transcript"
+    max_new_tokens: int = Field(32, ge=1, le=200)
+    temperature: float = Field(0.0, ge=0.0, le=2.0)
+    top_k: int | None = Field(None, ge=1, le=200)
+    inference_mode: Literal["manual", "greedy", "focused", "creative"] = "manual"
+    update_settings: bool = True
 
 
 class TrainingRequest(BaseModel):
@@ -217,6 +256,65 @@ def deployment_profile() -> dict:
 def deployment_estimate(request: ResourceEstimateRequest) -> dict:
     try:
         return deployment_service.estimate(_to_resource_estimate_request_data(request))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/conversations")
+def list_conversations() -> list[dict]:
+    return conversation_service.list_conversations()
+
+
+@app.post("/conversations")
+def create_conversation(request: ConversationCreateRequest) -> dict:
+    try:
+        return conversation_service.create_conversation(
+            _to_conversation_create_request_data(request)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/conversations/{conversation_id}")
+def get_conversation(conversation_id: str) -> dict:
+    try:
+        return conversation_service.get_conversation(conversation_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.delete("/conversations/{conversation_id}")
+def delete_conversation(conversation_id: str) -> dict:
+    try:
+        return conversation_service.delete_conversation(conversation_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/conversations/{conversation_id}/context-preview")
+def preview_conversation_context(
+    conversation_id: str,
+    request: ConversationTurnRequest,
+) -> dict:
+    try:
+        return conversation_service.preview_context(
+            conversation_id,
+            _to_conversation_turn_request_data(request),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/conversations/{conversation_id}/messages")
+def send_conversation_message(
+    conversation_id: str,
+    request: ConversationTurnRequest,
+) -> dict:
+    try:
+        return conversation_service.send_message(
+            conversation_id,
+            _to_conversation_turn_request_data(request),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -694,6 +792,41 @@ def _to_resource_estimate_request_data(
         include_training=request.include_training,
         batch_size=request.batch_size,
         block_size=request.block_size,
+    )
+
+
+def _to_conversation_create_request_data(
+    request: ConversationCreateRequest,
+) -> ConversationCreateRequestData:
+    return ConversationCreateRequestData(
+        title=request.title,
+        model_id=request.model_id,
+        system_prompt=request.system_prompt,
+        max_history_messages=request.max_history_messages,
+        context_token_budget=request.context_token_budget,
+        context_format=request.context_format,
+        max_new_tokens=request.max_new_tokens,
+        temperature=request.temperature,
+        top_k=request.top_k,
+        inference_mode=request.inference_mode,
+    )
+
+
+def _to_conversation_turn_request_data(
+    request: ConversationTurnRequest,
+) -> ConversationTurnRequestData:
+    return ConversationTurnRequestData(
+        message=request.message,
+        model_id=request.model_id,
+        system_prompt=request.system_prompt,
+        max_history_messages=request.max_history_messages,
+        context_token_budget=request.context_token_budget,
+        context_format=request.context_format,
+        max_new_tokens=request.max_new_tokens,
+        temperature=request.temperature,
+        top_k=request.top_k,
+        inference_mode=request.inference_mode,
+        update_settings=request.update_settings,
     )
 
 

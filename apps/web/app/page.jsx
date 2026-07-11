@@ -51,14 +51,14 @@ const FALLBACK_MODELS = [
 
 const FALLBACK_EXTERNAL_MODELS = [
   {
-    model_id: "mock-echo",
-    provider: "mock",
-    provider_model_name: "mock-echo",
-    label: "Mock external model",
-    description: "Offline provider used to verify external-model wiring.",
-    state: "available",
-    requires_api_key: false,
-    base_url: "local"
+    model_id: "openai-compatible",
+    provider: "openai-compatible",
+    provider_model_name: "model unset",
+    label: "OpenAI-compatible chat",
+    description: "Calls a chat/completions compatible HTTP endpoint from the API server.",
+    state: "missing-config",
+    requires_api_key: true,
+    base_url: "https://api.openai.com/v1"
   }
 ];
 
@@ -157,6 +157,30 @@ const LEARNING_STAGES = {
       learning_stage: "lora"
     }
   },
+  "chat-sft": {
+    id: "chat-sft",
+    label: "Chat SFT",
+    title: "Minimal Chat Model",
+    description:
+      "Fine-tune downloaded GPT-2 with LoRA on multi-turn chat transcripts.",
+    datasetIds: ["chat-sft-lora"],
+    fallbackDataset: {
+      dataset_id: "chat-sft-lora",
+      tier: "chat",
+      label: "Minimal chat SFT",
+      description: "Small multi-turn chat transcripts.",
+      recommended_steps: 240,
+      recommended_batch_size: 1,
+      recommended_block_size: 384,
+      recommended_learning_rate: 0.0003,
+      recommended_base_model_id: "gpt2-124M",
+      comparison_prompt: "who are you?",
+      dataset_probe_prompt: "What is my name?",
+      output_model_id: "gpt2-chat-lora",
+      training_objective: "chat-lora",
+      learning_stage: "chat-sft"
+    }
+  },
   "dataset-builder": {
     id: "dataset-builder",
     label: "Dataset Builder",
@@ -189,6 +213,7 @@ const TABS = [
   { id: "architecture", label: "GPT Model", icon: BrainCircuit },
   { id: "training-knobs", label: "Training Config", icon: SlidersHorizontal },
   { id: "chat", label: "Chat", icon: Send },
+  { id: "conversation", label: "Conversation", icon: History },
   { id: "prompt-playground", label: "Prompt Lab", icon: Pencil },
   { id: "external", label: "External", icon: Server },
   { id: "deployment", label: "Deploy", icon: Server },
@@ -197,6 +222,7 @@ const TABS = [
   { id: "pretrained", label: "GPT-2", icon: Download },
   { id: "instruction", label: "Instruction", icon: SlidersHorizontal },
   { id: "lora", label: "LoRA", icon: Layers3 },
+  { id: "chat-sft", label: "Chat SFT", icon: History },
   { id: "dataset-builder", label: "Dataset Builder", icon: Database },
   { id: "experiments", label: "Experiments", icon: History },
   { id: "checkpoints", label: "Checkpoints", icon: Save }
@@ -227,6 +253,19 @@ const PROMPT_STYLE_OPTIONS = [
     value: "custom",
     label: "Custom template",
     detail: "Render your template with {message}."
+  }
+];
+
+const CONVERSATION_CONTEXT_FORMAT_OPTIONS = [
+  {
+    value: "chat-transcript",
+    label: "Chat transcript",
+    detail: "Send System/User/Assistant turns directly to the model."
+  },
+  {
+    value: "instruction-request",
+    label: "Instruction request",
+    detail: "Wrap the session as one instruction asking the model to answer the latest user message."
   }
 ];
 
@@ -437,6 +476,36 @@ export default function Home() {
   const [isChatting, setIsChatting] = useState(false);
   const [chatAbortController, setChatAbortController] = useState(null);
 
+  const [conversations, setConversations] = useState([]);
+  const [activeConversationId, setActiveConversationId] = useState("");
+  const [activeConversation, setActiveConversation] = useState(null);
+  const [conversationTitle, setConversationTitle] = useState(
+    "Learning conversation"
+  );
+  const [conversationModelId, setConversationModelId] =
+    useState("random-tiny-byte");
+  const [conversationSystemPrompt, setConversationSystemPrompt] = useState(
+    "You are a concise assistant."
+  );
+  const [conversationMessage, setConversationMessage] = useState(
+    "My name is Rojar. Please remember it."
+  );
+  const [conversationMaxHistoryMessages, setConversationMaxHistoryMessages] =
+    useState(8);
+  const [conversationContextBudget, setConversationContextBudget] = useState(256);
+  const [conversationContextFormat, setConversationContextFormat] =
+    useState("chat-transcript");
+  const [conversationMaxNewTokens, setConversationMaxNewTokens] = useState(32);
+  const [conversationTemperature, setConversationTemperature] = useState(0);
+  const [conversationTopK, setConversationTopK] = useState("");
+  const [conversationInferenceMode, setConversationInferenceMode] =
+    useState("manual");
+  const [conversationPreview, setConversationPreview] = useState(null);
+  const [conversationError, setConversationError] = useState("");
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  const [isPreviewingConversation, setIsPreviewingConversation] = useState(false);
+  const [isSendingConversation, setIsSendingConversation] = useState(false);
+
   const [playgroundMessage, setPlaygroundMessage] = useState(DEFAULT_CHAT_MESSAGE);
   const [playgroundModelId, setPlaygroundModelId] = useState("random-tiny-byte");
   const [playgroundPromptStyle, setPlaygroundPromptStyle] =
@@ -457,7 +526,7 @@ export default function Home() {
     useState(false);
 
   const [externalModels, setExternalModels] = useState([]);
-  const [externalModelId, setExternalModelId] = useState("mock-echo");
+  const [externalModelId, setExternalModelId] = useState("openai-compatible");
   const [externalLocalModelId, setExternalLocalModelId] =
     useState("random-tiny-byte");
   const [externalMessage, setExternalMessage] = useState(GPT2_INSTRUCTION_MESSAGE);
@@ -539,6 +608,7 @@ export default function Home() {
     const byId = new Map(base.map((model) => [model.model_id, model]));
     [
       chatModelId,
+      conversationModelId,
       playgroundModelId,
       externalLocalModelId,
       deploymentModelId,
@@ -561,6 +631,7 @@ export default function Home() {
   }, [
     baseModelId,
     chatModelId,
+    conversationModelId,
     deploymentModelId,
     externalLocalModelId,
     leftModelId,
@@ -645,6 +716,9 @@ export default function Home() {
     if (!availableIds.has(chatModelId)) {
       setChatModelId(fallbackId);
     }
+    if (!availableIds.has(conversationModelId)) {
+      setConversationModelId(fallbackId);
+    }
     if (!availableIds.has(playgroundModelId)) {
       setPlaygroundModelId(fallbackId);
     }
@@ -663,6 +737,7 @@ export default function Home() {
   }, [
     chatModelId,
     chatModelOptions,
+    conversationModelId,
     deploymentModelId,
     externalLocalModelId,
     leftModelId,
@@ -672,7 +747,7 @@ export default function Home() {
 
   useEffect(() => {
     const availableIds = new Set(externalModelOptions.map((model) => model.model_id));
-    const fallbackId = externalModelOptions[0]?.model_id || "mock-echo";
+    const fallbackId = externalModelOptions[0]?.model_id || "openai-compatible";
     if (!availableIds.has(externalModelId)) {
       setExternalModelId(fallbackId);
     }
@@ -682,6 +757,15 @@ export default function Home() {
     refreshAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [normalizedApiBaseUrl]);
+
+  useEffect(() => {
+    if (!activeConversationId) {
+      setActiveConversation(null);
+      return;
+    }
+    loadConversation(activeConversationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConversationId, normalizedApiBaseUrl]);
 
   useEffect(() => {
     if (!trainingIsActive || !trainingJob?.job_id) {
@@ -701,6 +785,7 @@ export default function Home() {
           await refreshAll();
           if (job.result?.loaded_model?.model_id) {
             setChatModelId(job.result.loaded_model.model_id);
+            setConversationModelId(job.result.loaded_model.model_id);
             setPlaygroundModelId(job.result.loaded_model.model_id);
             setExternalLocalModelId(job.result.loaded_model.model_id);
             setRightModelId(job.result.loaded_model.model_id);
@@ -739,11 +824,13 @@ export default function Home() {
           await refreshAll();
           if (job.result?.model_id) {
             setChatModelId(job.result.model_id);
+            setConversationModelId(job.result.model_id);
             setPlaygroundModelId(job.result.model_id);
             setExternalLocalModelId(job.result.model_id);
             setRightModelId(job.result.model_id);
             setBaseModelId(job.result.model_id);
             setMessage(GPT2_INSTRUCTION_MESSAGE);
+            setConversationMessage(GPT2_INSTRUCTION_MESSAGE);
             setPlaygroundMessage(GPT2_INSTRUCTION_MESSAGE);
             setExternalMessage(GPT2_INSTRUCTION_MESSAGE);
           }
@@ -801,6 +888,7 @@ export default function Home() {
       pretrainedResult,
       externalModelsResult,
       deploymentProfileResult,
+      conversationsResult,
       datasetsResult,
       experimentsResult,
       checkpointsResult,
@@ -811,6 +899,7 @@ export default function Home() {
         requestJson("/pretrained/models"),
         requestJson("/external/models"),
         requestJson("/deployment/profile"),
+        requestJson("/conversations"),
         requestJson("/training/datasets"),
         requestJson("/training/experiments"),
         requestJson("/checkpoints"),
@@ -828,6 +917,12 @@ export default function Home() {
     }
     if (deploymentProfileResult.status === "fulfilled") {
       setDeploymentProfile(deploymentProfileResult.value);
+    }
+    if (conversationsResult.status === "fulfilled") {
+      setConversations(conversationsResult.value);
+      setActiveConversationId((current) =>
+        current || conversationsResult.value[0]?.conversation_id || ""
+      );
     }
     if (datasetsResult.status === "fulfilled") {
       setDatasets(datasetsResult.value);
@@ -941,6 +1036,167 @@ export default function Home() {
     setIsChatting(false);
   }
 
+  function applyConversationSettings(settings = {}) {
+    setConversationModelId(settings.model_id || conversationModelId);
+    setConversationSystemPrompt(settings.system_prompt || conversationSystemPrompt);
+    setConversationMaxHistoryMessages(
+      settings.max_history_messages ?? conversationMaxHistoryMessages
+    );
+    setConversationContextBudget(
+      settings.context_token_budget ?? conversationContextBudget
+    );
+    setConversationContextFormat(settings.context_format || conversationContextFormat);
+    setConversationMaxNewTokens(settings.max_new_tokens ?? conversationMaxNewTokens);
+    setConversationTemperature(settings.temperature ?? conversationTemperature);
+    setConversationTopK(
+      settings.top_k === null || settings.top_k === undefined ? "" : settings.top_k
+    );
+    setConversationInferenceMode(settings.inference_mode || conversationInferenceMode);
+  }
+
+  function conversationPayload(message = conversationMessage) {
+    const topK = `${conversationTopK}`.trim();
+    return {
+      message,
+      model_id: conversationModelId,
+      system_prompt: conversationSystemPrompt,
+      max_history_messages: Number(conversationMaxHistoryMessages),
+      context_token_budget: Number(conversationContextBudget),
+      context_format: conversationContextFormat,
+      max_new_tokens: Number(conversationMaxNewTokens),
+      temperature: Number(conversationTemperature),
+      top_k: topK ? Number(topK) : null,
+      inference_mode: conversationInferenceMode,
+      update_settings: true
+    };
+  }
+
+  async function loadConversation(conversationId) {
+    setConversationError("");
+    try {
+      const conversation = await requestJson(`/conversations/${conversationId}`);
+      setActiveConversation(conversation);
+      setConversationTitle(conversation.title || "Learning conversation");
+      applyConversationSettings(conversation.settings);
+    } catch (error) {
+      setConversationError(error.message);
+    }
+  }
+
+  async function createConversation() {
+    setIsCreatingConversation(true);
+    setConversationError("");
+
+    try {
+      const conversation = await requestJson("/conversations", {
+        method: "POST",
+        body: JSON.stringify({
+          title: conversationTitle,
+          model_id: conversationModelId,
+          system_prompt: conversationSystemPrompt,
+          max_history_messages: Number(conversationMaxHistoryMessages),
+          context_token_budget: Number(conversationContextBudget),
+          context_format: conversationContextFormat,
+          max_new_tokens: Number(conversationMaxNewTokens),
+          temperature: Number(conversationTemperature),
+          top_k: `${conversationTopK}`.trim() ? Number(conversationTopK) : null,
+          inference_mode: conversationInferenceMode
+        })
+      });
+      setActiveConversationId(conversation.conversation_id);
+      setActiveConversation(conversation);
+      setConversationPreview(null);
+      await refreshAll();
+    } catch (error) {
+      setConversationError(error.message);
+    } finally {
+      setIsCreatingConversation(false);
+    }
+  }
+
+  async function deleteConversation() {
+    if (!activeConversationId) {
+      return;
+    }
+    setConversationError("");
+    try {
+      await requestJson(`/conversations/${activeConversationId}`, {
+        method: "DELETE"
+      });
+      setActiveConversationId("");
+      setActiveConversation(null);
+      setConversationPreview(null);
+      await refreshAll();
+    } catch (error) {
+      setConversationError(error.message);
+    }
+  }
+
+  async function previewConversationContext() {
+    if (!activeConversationId) {
+      await createConversation();
+      return;
+    }
+    setIsPreviewingConversation(true);
+    setConversationError("");
+
+    try {
+      const preview = await requestJson(
+        `/conversations/${activeConversationId}/context-preview`,
+        {
+          method: "POST",
+          body: JSON.stringify(conversationPayload())
+        }
+      );
+      setConversationPreview(preview);
+    } catch (error) {
+      setConversationError(error.message);
+    } finally {
+      setIsPreviewingConversation(false);
+    }
+  }
+
+  async function sendConversationMessage() {
+    setIsSendingConversation(true);
+    setConversationError("");
+
+    try {
+      let conversationId = activeConversationId;
+      if (!conversationId) {
+        const conversation = await requestJson("/conversations", {
+          method: "POST",
+          body: JSON.stringify({
+            title: conversationTitle,
+            model_id: conversationModelId,
+            system_prompt: conversationSystemPrompt,
+            max_history_messages: Number(conversationMaxHistoryMessages),
+            context_token_budget: Number(conversationContextBudget),
+            context_format: conversationContextFormat,
+            max_new_tokens: Number(conversationMaxNewTokens),
+            temperature: Number(conversationTemperature),
+            top_k: `${conversationTopK}`.trim() ? Number(conversationTopK) : null,
+            inference_mode: conversationInferenceMode
+          })
+        });
+        conversationId = conversation.conversation_id;
+        setActiveConversationId(conversationId);
+      }
+
+      const turn = await requestJson(`/conversations/${conversationId}/messages`, {
+        method: "POST",
+        body: JSON.stringify(conversationPayload())
+      });
+      setActiveConversation(turn.conversation);
+      setConversationPreview(turn.context);
+      setConversationMessage("");
+      await refreshAll();
+    } catch (error) {
+      setConversationError(error.message);
+    } finally {
+      setIsSendingConversation(false);
+    }
+  }
+
   function promptPlaygroundPayload() {
     const topK = `${playgroundTopK}`.trim();
     return {
@@ -1001,8 +1257,8 @@ export default function Home() {
   function externalPayload() {
     const topK = `${externalTopK}`.trim();
     return {
-      provider: selectedExternalModel?.provider || "mock",
-      model_id: selectedExternalModel?.model_id || "mock-echo",
+      provider: selectedExternalModel?.provider || "openai-compatible",
+      model_id: selectedExternalModel?.model_id || "openai-compatible",
       message: externalMessage,
       system_prompt: externalSystemPrompt,
       max_new_tokens: Number(externalMaxNewTokens),
@@ -1353,6 +1609,9 @@ export default function Home() {
     setBaseModelId(dataset.recommended_base_model_id || baseModelId);
     setOutputModelId(dataset.output_model_id || outputModelId);
     setMessage(dataset.comparison_prompt || dataset.sample_prompt || message);
+    setConversationMessage(
+      dataset.comparison_prompt || dataset.sample_prompt || conversationMessage
+    );
     setPlaygroundMessage(
       dataset.comparison_prompt || dataset.sample_prompt || playgroundMessage
     );
@@ -1375,6 +1634,7 @@ export default function Home() {
       });
       await refreshAll();
       setChatModelId(loaded.model_id);
+      setConversationModelId(loaded.model_id);
       setPlaygroundModelId(loaded.model_id);
       setExternalLocalModelId(loaded.model_id);
       setRightModelId(loaded.model_id);
@@ -1401,11 +1661,15 @@ export default function Home() {
       });
       await refreshAll();
       setChatModelId(loaded.model_id);
+      setConversationModelId(loaded.model_id);
       setPlaygroundModelId(loaded.model_id);
       setExternalLocalModelId(loaded.model_id);
       setRightModelId(loaded.model_id);
       setBaseModelId(loaded.model_id);
       setMessage(experiment.comparison_prompt || experiment.sample_prompt || message);
+      setConversationMessage(
+        experiment.comparison_prompt || experiment.sample_prompt || conversationMessage
+      );
       setPlaygroundMessage(
         experiment.comparison_prompt || experiment.sample_prompt || playgroundMessage
       );
@@ -1499,6 +1763,49 @@ export default function Home() {
               setLearningRate={setLearningRate}
               setTrainingSteps={setTrainingSteps}
               trainingSteps={trainingSteps}
+            />
+          )}
+
+          {activeTab === "conversation" && (
+            <ConversationView
+              activeConversation={activeConversation}
+              activeConversationId={activeConversationId}
+              conversationContextBudget={conversationContextBudget}
+              conversationContextFormat={conversationContextFormat}
+              conversationError={conversationError}
+              conversationInferenceMode={conversationInferenceMode}
+              conversationMaxHistoryMessages={conversationMaxHistoryMessages}
+              conversationMaxNewTokens={conversationMaxNewTokens}
+              conversationMessage={conversationMessage}
+              conversationModelId={conversationModelId}
+              conversationPreview={conversationPreview}
+              conversationSystemPrompt={conversationSystemPrompt}
+              conversationTemperature={conversationTemperature}
+              conversationTitle={conversationTitle}
+              conversationTopK={conversationTopK}
+              conversations={conversations}
+              contextFormatOptions={CONVERSATION_CONTEXT_FORMAT_OPTIONS}
+              createConversation={createConversation}
+              deleteConversation={deleteConversation}
+              inferenceModeOptions={INFERENCE_MODE_OPTIONS}
+              isCreatingConversation={isCreatingConversation}
+              isPreviewingConversation={isPreviewingConversation}
+              isSendingConversation={isSendingConversation}
+              modelOptions={chatModelOptions}
+              previewConversationContext={previewConversationContext}
+              sendConversationMessage={sendConversationMessage}
+              setActiveConversationId={setActiveConversationId}
+              setConversationContextBudget={setConversationContextBudget}
+              setConversationContextFormat={setConversationContextFormat}
+              setConversationInferenceMode={setConversationInferenceMode}
+              setConversationMaxHistoryMessages={setConversationMaxHistoryMessages}
+              setConversationMaxNewTokens={setConversationMaxNewTokens}
+              setConversationMessage={setConversationMessage}
+              setConversationModelId={setConversationModelId}
+              setConversationSystemPrompt={setConversationSystemPrompt}
+              setConversationTemperature={setConversationTemperature}
+              setConversationTitle={setConversationTitle}
+              setConversationTopK={setConversationTopK}
             />
           )}
 
@@ -2035,6 +2342,413 @@ function KnobControl({ label, min, max, onChange, step, value }) {
         onChange={(event) => onChange(event.target.value)}
       />
     </label>
+  );
+}
+
+function ConversationView({
+  activeConversation,
+  activeConversationId,
+  conversationContextBudget,
+  conversationContextFormat,
+  conversationError,
+  conversationInferenceMode,
+  conversationMaxHistoryMessages,
+  conversationMaxNewTokens,
+  conversationMessage,
+  conversationModelId,
+  conversationPreview,
+  conversationSystemPrompt,
+  conversationTemperature,
+  conversationTitle,
+  conversationTopK,
+  conversations,
+  contextFormatOptions,
+  createConversation,
+  deleteConversation,
+  inferenceModeOptions,
+  isCreatingConversation,
+  isPreviewingConversation,
+  isSendingConversation,
+  modelOptions,
+  previewConversationContext,
+  sendConversationMessage,
+  setActiveConversationId,
+  setConversationContextBudget,
+  setConversationContextFormat,
+  setConversationInferenceMode,
+  setConversationMaxHistoryMessages,
+  setConversationMaxNewTokens,
+  setConversationMessage,
+  setConversationModelId,
+  setConversationSystemPrompt,
+  setConversationTemperature,
+  setConversationTitle,
+  setConversationTopK
+}) {
+  const messages = activeConversation?.messages || [];
+  const manualMode = conversationInferenceMode === "manual";
+  const selectedModel = modelOptions.find(
+    (model) => model.model_id === conversationModelId
+  );
+  const selectedContextFormat = contextFormatOptions.find(
+    (format) => format.value === conversationContextFormat
+  );
+  const conversationModelWarnings = [];
+  if (selectedModel?.state === "loaded-random" || selectedModel?.state === "random-untrained") {
+    conversationModelWarnings.push(
+      "This is a random baseline model. Byte-like repeated output is expected before training."
+    );
+  }
+  if (
+    selectedModel?.state === "loaded-pretrained" &&
+    selectedModel?.model_id?.startsWith("gpt2-")
+  ) {
+    conversationModelWarnings.push(
+      "Downloaded GPT-2 is a base next-token model, not a ChatGPT-style instruction model."
+    );
+  }
+
+  return (
+    <div className="view-stack">
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Conversation</h2>
+            <p>Keep a multi-turn session and control how much history enters context.</p>
+          </div>
+          <div className="button-row">
+            {activeConversationId && (
+              <button
+                className="secondary-button danger"
+                type="button"
+                onClick={deleteConversation}
+              >
+                <Trash2 aria-hidden="true" />
+                Delete
+              </button>
+            )}
+            <button
+              className="primary-button"
+              type="button"
+              onClick={createConversation}
+              disabled={isCreatingConversation}
+            >
+              {isCreatingConversation ? (
+                <LoaderCircle aria-hidden="true" className="spin" />
+              ) : (
+                <Plus aria-hidden="true" />
+              )}
+              New session
+            </button>
+          </div>
+        </div>
+
+        {conversations.length > 0 && (
+          <div className="conversation-list">
+            {conversations.map((conversation) => (
+              <button
+                className={
+                  activeConversationId === conversation.conversation_id
+                    ? "conversation-chip active"
+                    : "conversation-chip"
+                }
+                key={conversation.conversation_id}
+                type="button"
+                onClick={() => setActiveConversationId(conversation.conversation_id)}
+              >
+                <strong>{conversation.title}</strong>
+                <span>{conversation.message_count} messages</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="form-grid">
+          <label className="field">
+            <span>Title</span>
+            <input
+              value={conversationTitle}
+              onChange={(event) => setConversationTitle(event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>Model</span>
+            <select
+              value={conversationModelId}
+              onChange={(event) => setConversationModelId(event.target.value)}
+            >
+              {modelOptions.map((model) => (
+                <option key={model.model_id} value={model.model_id}>
+                  {model.model_id}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Inference mode</span>
+            <select
+              value={conversationInferenceMode}
+              onChange={(event) => setConversationInferenceMode(event.target.value)}
+            >
+              {inferenceModeOptions.map((mode) => (
+                <option key={mode.value} value={mode.value}>
+                  {mode.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Context format</span>
+            <select
+              value={conversationContextFormat}
+              onChange={(event) => setConversationContextFormat(event.target.value)}
+            >
+              {contextFormatOptions.map((format) => (
+                <option key={format.value} value={format.value}>
+                  {format.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Max new tokens</span>
+            <input
+              type="number"
+              min="1"
+              max="200"
+              value={conversationMaxNewTokens}
+              onChange={(event) => setConversationMaxNewTokens(event.target.value)}
+            />
+          </label>
+
+          <label className="field wide">
+            <span>System prompt</span>
+            <textarea
+              rows={2}
+              value={conversationSystemPrompt}
+              onChange={(event) => setConversationSystemPrompt(event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>History messages</span>
+            <input
+              type="number"
+              min="1"
+              max="40"
+              value={conversationMaxHistoryMessages}
+              onChange={(event) => setConversationMaxHistoryMessages(event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>Context token budget</span>
+            <input
+              type="number"
+              min="1"
+              max="8192"
+              value={conversationContextBudget}
+              onChange={(event) => setConversationContextBudget(event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>Temperature</span>
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="0.1"
+              value={conversationTemperature}
+              onChange={(event) => setConversationTemperature(event.target.value)}
+              disabled={!manualMode}
+            />
+            <strong>{Number(conversationTemperature).toFixed(1)}</strong>
+          </label>
+
+          <label className="field">
+            <span>Top-k</span>
+            <input
+              type="number"
+              min="1"
+              max="200"
+              value={conversationTopK}
+              onChange={(event) => setConversationTopK(event.target.value)}
+              placeholder="none"
+              disabled={!manualMode}
+            />
+          </label>
+        </div>
+
+        {selectedContextFormat && (
+          <div className="inline-note">{selectedContextFormat.detail}</div>
+        )}
+
+        {conversationModelWarnings.length > 0 && (
+          <div className="warning-list">
+            {conversationModelWarnings.map((warning) => (
+              <div className="warning-line" key={warning}>
+                {warning}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {conversationError && <div className="error-line">{conversationError}</div>}
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Session Messages</h2>
+            <p>User and assistant turns stored in the current API session.</p>
+          </div>
+          {activeConversation && (
+            <div className="metrics">
+              <span>{activeConversation.message_count} messages</span>
+              <span>{activeConversation.settings?.model_id}</span>
+            </div>
+          )}
+        </div>
+
+        {messages.length > 0 ? (
+          <div className="conversation-thread">
+            {messages.map((message) => (
+              <article className={`message-row ${message.role}`} key={message.message_id}>
+                <div className="message-meta">
+                  <span>{message.role}</span>
+                  {message.model_id && <span>{message.model_id}</span>}
+                  {message.context_format && <span>{message.context_format}</span>}
+                  {message.tokens_generated !== null &&
+                    message.tokens_generated !== undefined && (
+                      <span>{message.tokens_generated} tokens</span>
+                    )}
+                </div>
+                <p>{message.content}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <History aria-hidden="true" />
+            <span>No messages yet</span>
+          </div>
+        )}
+
+        <div className="conversation-composer">
+          <label className="field wide">
+            <span>Next message</span>
+            <textarea
+              rows={3}
+              value={conversationMessage}
+              onChange={(event) => setConversationMessage(event.target.value)}
+            />
+          </label>
+          <div className="button-row">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={previewConversationContext}
+              disabled={isPreviewingConversation || !conversationMessage.trim()}
+            >
+              {isPreviewingConversation ? (
+                <LoaderCircle aria-hidden="true" className="spin" />
+              ) : (
+                <Pencil aria-hidden="true" />
+              )}
+              Preview context
+            </button>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={sendConversationMessage}
+              disabled={isSendingConversation || !conversationMessage.trim()}
+            >
+              {isSendingConversation ? (
+                <LoaderCircle aria-hidden="true" className="spin" />
+              ) : (
+                <Send aria-hidden="true" />
+              )}
+              Send
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Context Preview</h2>
+            <p>The exact transcript rendered before generation.</p>
+          </div>
+          {conversationPreview && (
+            <div className="metrics">
+              <span>prompt {conversationPreview.prompt_tokens}</span>
+              <span>budget {conversationPreview.context_token_budget}</span>
+              <span>model ctx {conversationPreview.model_context_length}</span>
+              <span>included {conversationPreview.included_messages.length}</span>
+            </div>
+          )}
+        </div>
+
+        {conversationPreview ? (
+          <div className="template-box">
+            <div className="metric-grid">
+              <Metric label="Prompt tokens" value={conversationPreview.prompt_tokens} />
+              <Metric
+                label="Model context"
+                value={conversationPreview.model_context_length}
+              />
+              <Metric
+                label="Remaining"
+                value={conversationPreview.remaining_context_tokens}
+              />
+              <Metric
+                label="Omitted by history"
+                value={conversationPreview.omitted_by_history}
+              />
+              <Metric
+                label="Omitted by tokens"
+                value={conversationPreview.omitted_by_token_budget}
+              />
+              <Metric
+                label="Max answer"
+                value={conversationPreview.settings.max_new_tokens}
+              />
+              <Metric
+                label="Mode"
+                value={conversationPreview.settings.inference_mode}
+              />
+              <Metric
+                label="Format"
+                value={conversationPreview.settings.context_format}
+              />
+            </div>
+
+            {conversationPreview.warnings.length > 0 && (
+              <div className="warning-list">
+                {conversationPreview.warnings.map((warning) => (
+                  <div className="warning-line" key={warning}>
+                    {warning}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <pre>{conversationPreview.prompt}</pre>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <Pencil aria-hidden="true" />
+            <span>No context preview yet</span>
+          </div>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -3486,28 +4200,39 @@ function TrainingView({
     (model) => model.model_id === "gpt2-124M" && model.state !== "not-loaded"
   );
   const isLoraStage = stage.id === "lora";
+  const isChatStage = stage.id === "chat-sft";
   const isBuilderStage = stage.id === "dataset-builder";
-  const showInstructionLoop = stage.id === "instruction" || isLoraStage || isBuilderStage;
+  const showInstructionLoop =
+    stage.id === "instruction" || isLoraStage || isChatStage || isBuilderStage;
   const trainingIsActive =
     trainingJob?.status === "queued" || trainingJob?.status === "running";
   const builderHasTrainExamples =
     !isBuilderStage || (selectedDataset?.train_examples || 0) > 0;
+  const datasetKnownByApi =
+    !selectedDataset ||
+    datasets.length === 0 ||
+    datasets.some((dataset) => dataset.dataset_id === selectedDataset.dataset_id);
+  const datasetApiMismatch = Boolean(selectedDataset && !datasetKnownByApi);
   const beforeTitle =
     stage.id === "instruction"
       ? "Before (raw GPT-2)"
       : isLoraStage
         ? "Before (frozen GPT-2)"
-        : isBuilderStage
-          ? "Before (GPT-2 base)"
-          : "Before (base)";
+        : isChatStage
+          ? "Before (base GPT-2 chat prompt)"
+          : isBuilderStage
+            ? "Before (GPT-2 base)"
+            : "Before (base)";
   const afterTitle =
     stage.id === "instruction"
       ? "After (instruction SFT)"
       : isLoraStage
         ? "After (LoRA merged)"
-        : isBuilderStage
-          ? "After (custom SFT)"
-          : "After";
+        : isChatStage
+          ? "After (chat LoRA merged)"
+          : isBuilderStage
+            ? "After (custom SFT)"
+            : "After";
 
   return (
     <section className="panel">
@@ -3531,7 +4256,12 @@ function TrainingView({
             className="primary-button"
             type="button"
             onClick={startTraining}
-            disabled={isStartingTraining || trainingIsActive || !builderHasTrainExamples}
+            disabled={
+              isStartingTraining ||
+              trainingIsActive ||
+              !builderHasTrainExamples ||
+              datasetApiMismatch
+            }
           >
             {isStartingTraining ? (
               <LoaderCircle aria-hidden="true" className="spin" />
@@ -3560,6 +4290,7 @@ function TrainingView({
           prepareDataset={prepareDataset}
           pretrainedJob={pretrainedJob}
           runtimeInfo={runtimeInfo}
+          datasetApiMismatch={datasetApiMismatch}
           selectedDataset={selectedDataset}
           stage={stage}
           startPretrainedDownload={startPretrainedDownload}
@@ -3710,6 +4441,12 @@ function TrainingView({
           Add at least one train example before starting custom instruction training.
         </div>
       )}
+      {datasetApiMismatch && (
+        <div className="warning-line">
+          The Web UI knows {selectedDataset.dataset_id}, but the running API does
+          not. Restart or reload the API process, then refresh the Web UI.
+        </div>
+      )}
 
       {trainingJob && (
         <div className="training-status">
@@ -3778,6 +4515,7 @@ function TrainingView({
 
 function InstructionLoopPanel({
   cancelPretrainedJob,
+  datasetApiMismatch,
   datasetPrepareError,
   gpt2Loaded,
   gpt2Small,
@@ -3794,7 +4532,13 @@ function InstructionLoopPanel({
   const datasetReady = Boolean(selectedDataset?.exists);
   const isCpuRuntime = runtimeInfo?.device === "cpu";
   const isLoraStage = stage?.id === "lora";
+  const isChatStage = stage?.id === "chat-sft";
   const isBuilderStage = stage?.id === "dataset-builder";
+  const templatePreview =
+    selectedDataset?.chat_template || selectedDataset?.instruction_template || "";
+  const chatMessagesPreview = selectedDataset?.chat_example?.messages
+    ?.map((message) => `${message.role}: ${message.content}`)
+    .join("\n");
 
   return (
     <div className="instruction-loop">
@@ -3803,9 +4547,17 @@ function InstructionLoopPanel({
           <span className={datasetReady ? "state good" : "state muted"}>
             {datasetReady ? "ready" : "missing"}
           </span>
-          <h3>{isBuilderStage ? "Custom data" : "Instruction data"}</h3>
+          <h3>
+            {isChatStage
+              ? "Chat data"
+              : isBuilderStage
+                ? "Custom data"
+                : "Instruction data"}
+          </h3>
           <p>
-            {isBuilderStage
+            {isChatStage
+              ? `${selectedDataset?.chat_training_pairs || 0} assistant targets`
+              : isBuilderStage
               ? `${selectedDataset?.train_examples || 0} train / ${
                   selectedDataset?.eval_examples || 0
                 } eval`
@@ -3815,7 +4567,7 @@ function InstructionLoopPanel({
             className="secondary-button"
             type="button"
             onClick={() => prepareDataset(selectedDataset)}
-            disabled={isPreparingDataset || datasetReady}
+            disabled={isPreparingDataset || datasetReady || datasetApiMismatch}
           >
             {isPreparingDataset ? (
               <LoaderCircle aria-hidden="true" className="spin" />
@@ -3871,14 +4623,18 @@ function InstructionLoopPanel({
             {runtimeInfo?.device === "cuda" ? "gpu" : "cpu"}
           </span>
           <h3>
-            {isLoraStage
+            {isChatStage
+              ? "Chat LoRA"
+              : isLoraStage
               ? "LoRA adapters"
               : isBuilderStage
                 ? "Custom SFT"
                 : "Instruction SFT"}
           </h3>
           <p>
-            {isLoraStage
+            {isChatStage
+              ? "Freeze GPT-2, train LoRA adapters on multi-turn transcripts, then merge into a chat checkpoint."
+              : isLoraStage
               ? "Freeze GPT-2, train low-rank adapters, merge into a checkpoint."
               : isBuilderStage
                 ? "Only train split examples update the model; eval examples stay reserved for comparison."
@@ -3891,7 +4647,7 @@ function InstructionLoopPanel({
       {datasetPrepareError && <div className="error-line">{datasetPrepareError}</div>}
       {isCpuRuntime && (
         <div className="warning-line">
-          {isLoraStage
+          {isLoraStage || isChatStage
             ? "CPU-only runtime: LoRA trains far fewer parameters, but GPT-2 still needs forward/backward passes. CUDA is still recommended."
             : "CPU-only runtime: GPT-2 SFT is suitable only as a short smoke test here. Use a CUDA PyTorch install for reasonable training time."}
         </div>
@@ -3900,11 +4656,20 @@ function InstructionLoopPanel({
       <div className="instruction-preview">
         <div className="template-box">
           <h3>Prompt template</h3>
-          <pre>{selectedDataset?.instruction_template || ""}</pre>
+          <pre>{templatePreview}</pre>
         </div>
         <div className="template-box">
           <h3>Dataset example</h3>
-          {selectedDataset?.instruction_example ? (
+          {isChatStage && selectedDataset?.chat_example ? (
+            <>
+              <Metric
+                label="System"
+                value={selectedDataset.chat_example.system || "-"}
+              />
+              <Metric label="Turns" value={chatMessagesPreview || "-"} />
+              <Metric label="Target response" value={selectedDataset.target_response_preview} />
+            </>
+          ) : selectedDataset?.instruction_example ? (
             <>
               <Metric
                 label="Instruction"

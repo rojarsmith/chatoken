@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import torch
 
 
@@ -13,6 +15,8 @@ BUILT_IN_PROMPT_TEMPLATES = {
         "\n\n### Response:"
     ),
 }
+SENTENCE_RE = re.compile(r"\s*[^.!?\n]+[.!?]")
+REPEATED_WORD_RE = re.compile(r"\b([A-Za-z0-9_'-]+)(?:\s+\1\b){2,}", re.IGNORECASE)
 
 
 def prepare_chat_prompt(
@@ -50,6 +54,65 @@ def format_instruction_prompt(instruction: str, input_text: str = "") -> str:
     if input_text:
         prompt += f"\n\n### Input:\n{input_text}"
     return prompt
+
+
+def format_chat_transcript(
+    system_prompt: str,
+    messages: list[dict],
+    *,
+    append_assistant_prompt: bool = True,
+) -> str:
+    parts = []
+    if system_prompt.strip():
+        parts.append(f"System: {system_prompt.strip()}")
+
+    for message in messages:
+        role = str(message.get("role", "")).strip().lower()
+        content = str(message.get("content", "")).strip()
+        if not content:
+            continue
+        if role == "system":
+            parts.append(f"System: {content}")
+        elif role == "user":
+            parts.append(f"User: {content}")
+        elif role == "assistant":
+            parts.append(f"Assistant: {content}")
+
+    if append_assistant_prompt and (
+        not parts or not parts[-1].startswith("Assistant:")
+    ):
+        parts.append("Assistant:")
+    return "\n".join(parts)
+
+
+def trim_repeated_sentences(text: str) -> str:
+    matches = list(SENTENCE_RE.finditer(text))
+    if len(matches) < 2:
+        return _trim_repeated_words(text.strip())
+
+    collapsed: list[str] = []
+    previous_normalized = ""
+    removed_repetition = False
+    for match in matches:
+        sentence = match.group(0)
+        normalized = " ".join(sentence.lower().split())
+        if normalized and normalized == previous_normalized:
+            removed_repetition = True
+            continue
+        collapsed.append(sentence)
+        previous_normalized = normalized
+
+    tail = text[matches[-1].end() :]
+    if removed_repetition and tail.strip():
+        tail = ""
+    return _trim_repeated_words(("".join(collapsed) + tail).strip())
+
+
+def _trim_repeated_words(text: str) -> str:
+    match = REPEATED_WORD_RE.search(text)
+    if match is None:
+        return text
+    return (text[: match.start()] + match.group(1)).strip()
 
 
 def generate(

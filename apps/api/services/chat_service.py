@@ -15,7 +15,11 @@ from llm_core.checkpoints import (
     load_checkpoint,
 )
 from llm_core.configs import MODEL_CONFIGS, ModelConfig
-from llm_core.generation import BUILT_IN_PROMPT_TEMPLATES, prepare_chat_prompt
+from llm_core.generation import (
+    BUILT_IN_PROMPT_TEMPLATES,
+    prepare_chat_prompt,
+    trim_repeated_sentences,
+)
 from llm_core.model import GPTModel, count_parameters
 from llm_core.tokenizer import Tokenizer, tokenizer_for_name
 
@@ -413,6 +417,20 @@ def _clean_reply(text: str, *, prompt_style: str) -> str:
     reply = text.strip()
     if prompt_style == "instruction":
         reply = reply.replace("### Response:", "", 1).strip()
+    if prompt_style in {"chat", "instruction"}:
+        for marker in (
+            "\nUser:",
+            "\nAssistant:",
+            "\nSystem:",
+            "\n### Instruction:",
+            "\n### Input:",
+            "\n### Response:",
+        ):
+            index = reply.find(marker)
+            if index >= 0:
+                reply = reply[:index].strip()
+    if prompt_style == "chat":
+        reply = trim_repeated_sentences(reply)
     return reply
 
 

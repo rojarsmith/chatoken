@@ -15,11 +15,10 @@ Web UI 使用 `External` 分頁。API key 只保存在 API server 的環境變�
 
 ## Providers
 
-後端提供三個 provider slot：
+後端只提供真正會呼叫模型的 provider slot。這個 prototype 不再提供 mock provider，因為 assistant reply 應該來自即時模型推論或真 provider 呼叫。
 
 | Provider | Model id | 用途 |
 | --- | --- | --- |
-| `mock` | `mock-echo` | 離線 provider，一定可用。用來驗證整合路徑。 |
 | `openai-compatible` | `openai-compatible` | 從 API server 呼叫相容 `/chat/completions` 的 endpoint。 |
 | `ollama` | `ollama-local` | 從 API server 呼叫本機 Ollama `/api/chat` endpoint。 |
 
@@ -28,22 +27,6 @@ Web UI 使用 `External` 分頁。API key 只保存在 API server 的環境變�
 ```cmd
 curl -s http://127.0.0.1:8000/external/models
 ```
-
-## 使用 Mock Provider
-
-mock provider 不需要任何設定：
-
-```cmd
-curl -s -X POST http://127.0.0.1:8000/external/prompt-preview ^
-  -H "Content-Type: application/json" ^
-  -d "{\"provider\":\"mock\",\"model_id\":\"mock-echo\",\"message\":\"Explain what a checkpoint is.\",\"inference_mode\":\"focused\"}"
-
-curl -s -X POST http://127.0.0.1:8000/external/chat ^
-  -H "Content-Type: application/json" ^
-  -d "{\"provider\":\"mock\",\"model_id\":\"mock-echo\",\"message\":\"Explain what a checkpoint is.\",\"inference_mode\":\"focused\"}"
-```
-
-先跑這個。它能確認 API request shape、Web UI、local comparison workflow 都已接好，再去設定真正 provider。
 
 ## 設定 OpenAI-Compatible Endpoint
 
@@ -98,12 +81,11 @@ curl -s -X POST http://127.0.0.1:8000/external/chat ^
 
 ## Web UI 學習檢查
 
-1. 打開 `External`。
-2. 選 `Mock external model`。
-3. 選一個 local model，例如 `random-tiny-byte` 或已載入的 checkpoint。
-4. 按 `Preview`，檢查 rendered prompt 和 provider `messages` payload。
-5. 按 `Compare`，確認 local side 與 external side 被清楚分開。
-6. 設定真正 provider 並重啟 API。
-7. 刷新 Web UI，用同一個 prompt 再跑一次。
+1. 設定 OpenAI-compatible 或 Ollama 環境變數並重啟 API。
+2. 打開 `External`。
+3. 選擇已 configured 的 provider-backed model。
+4. 選一個 local model，例如 `random-tiny-byte` 或已載入的 checkpoint。
+5. 按 `Preview`，檢查 rendered prompt 和 provider `messages` payload。
+6. 按 `Compare`，確認 local side 與 external side 被清楚分開。
 
 這個階段要學到一個重要邊界：外部模型是有用的 baseline，但它們不會解釋本地 GPTModel、tokenizer、training loop、checkpoint 或 fine-tuning 如何運作。它們是比較對象，不是 from-scratch 路徑的替代品。

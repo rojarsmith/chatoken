@@ -36,7 +36,6 @@ class ExternalChatRequestData:
 class ExternalModelService:
     def list_models(self) -> list[dict]:
         return [
-            _mock_model(),
             _openai_compatible_model(),
             _ollama_model(),
         ]
@@ -72,16 +71,7 @@ class ExternalModelService:
         started_at = time.perf_counter()
         preview = self.preview_prompt(request)
 
-        if request.provider == "mock":
-            reply = (
-                "[mock external model] Provider wiring is working. "
-                f"Message received: {request.message}"
-            )
-            usage = {
-                "prompt_tokens": preview["estimated_prompt_tokens"],
-                "completion_tokens": _estimate_tokens(reply),
-            }
-        elif request.provider == "openai-compatible":
+        if request.provider == "openai-compatible":
             reply, usage = _call_openai_compatible(model, request, preview["messages"])
         elif request.provider == "ollama":
             reply, usage = _call_ollama(model, request, preview["messages"])
@@ -110,20 +100,6 @@ class ExternalModelService:
             "latency_ms": latency_ms,
             "usage": usage,
         }
-
-
-def _mock_model() -> dict:
-    return {
-        "model_id": "mock-echo",
-        "provider": "mock",
-        "provider_model_name": "mock-echo",
-        "label": "Mock external model",
-        "description": "Offline provider used to verify external-model wiring.",
-        "state": "available",
-        "requires_api_key": False,
-        "base_url": "local",
-    }
-
 
 def _openai_compatible_model() -> dict:
     api_key = os.environ.get("LLM_ABC_EXTERNAL_OPENAI_API_KEY", "").strip()

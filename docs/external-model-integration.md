@@ -15,11 +15,12 @@ The Web UI uses the `External` tab. The API keeps provider credentials on the se
 
 ## Providers
 
-The backend exposes three provider slots:
+The backend exposes real provider slots only. There is no mock provider in this
+prototype because assistant replies should come from live model computation or a
+real provider call.
 
 | Provider | Model id | Purpose |
 | --- | --- | --- |
-| `mock` | `mock-echo` | Offline provider that always works. Use it to verify the integration path. |
 | `openai-compatible` | `openai-compatible` | Calls a `/chat/completions` compatible endpoint from the API server. |
 | `ollama` | `ollama-local` | Calls a local Ollama `/api/chat` endpoint from the API server. |
 
@@ -28,22 +29,6 @@ Check provider state:
 ```cmd
 curl -s http://127.0.0.1:8000/external/models
 ```
-
-## Run With the Mock Provider
-
-The mock provider needs no setup:
-
-```cmd
-curl -s -X POST http://127.0.0.1:8000/external/prompt-preview ^
-  -H "Content-Type: application/json" ^
-  -d "{\"provider\":\"mock\",\"model_id\":\"mock-echo\",\"message\":\"Explain what a checkpoint is.\",\"inference_mode\":\"focused\"}"
-
-curl -s -X POST http://127.0.0.1:8000/external/chat ^
-  -H "Content-Type: application/json" ^
-  -d "{\"provider\":\"mock\",\"model_id\":\"mock-echo\",\"message\":\"Explain what a checkpoint is.\",\"inference_mode\":\"focused\"}"
-```
-
-Use this first. It proves that the API request shape, Web UI, and local comparison workflow are wired correctly before any real provider is configured.
 
 ## Configure an OpenAI-Compatible Endpoint
 
@@ -99,11 +84,10 @@ curl -s -X POST http://127.0.0.1:8000/external/chat ^
 ## Web UI Learning Checks
 
 1. Open `External`.
-2. Select `Mock external model`.
-3. Choose a local model, such as `random-tiny-byte` or a loaded checkpoint.
-4. Click `Preview` and inspect the rendered prompt plus provider `messages` payload.
-5. Click `Compare` and confirm the local side and external side are clearly separated.
-6. Configure a real provider and restart the API.
-7. Refresh the Web UI and repeat the same prompt.
+2. Configure OpenAI-compatible or Ollama environment variables and restart the API.
+3. Select the configured provider-backed model.
+4. Choose a local model, such as `random-tiny-byte` or a loaded checkpoint.
+5. Click `Preview` and inspect the rendered prompt plus provider `messages` payload.
+6. Click `Compare` and confirm the local side and external side are clearly separated.
 
 This stage teaches an important boundary: external models are useful baselines, but they do not explain how the local GPTModel, tokenizer, training loop, checkpoints, or fine-tuning work. They are comparison targets, not replacements for the from-scratch path.

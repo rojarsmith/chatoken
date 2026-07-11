@@ -13,7 +13,7 @@ import torch
 
 from apps.api.services.chat_service import ChatService
 from llm_core.checkpoints import save_checkpoint
-from llm_core.generation import format_instruction_prompt
+from llm_core.generation import format_chat_transcript, format_instruction_prompt
 from llm_core.lora import (
     LoRAConfig,
     apply_lora,
@@ -25,6 +25,7 @@ from llm_core.tokenizer import ByteTokenizer
 from llm_core.training import (
     TrainingConfig,
     generate_sample,
+    train_chat_language_model,
     train_instruction_language_model,
     train_tiny_language_model,
 )
@@ -32,6 +33,7 @@ from llm_core.training import (
 
 DEFAULT_COMPARISON_PROMPT = "Every effort moves you"
 BUILDER_DATASET_ID = "instruction-builder"
+CHAT_SFT_DATASET_ID = "chat-sft-lora"
 THE_VERDICT_URL = (
     "https://raw.githubusercontent.com/rasbt/"
     "LLMs-from-scratch/main/ch02/01_main-chapter-code/the-verdict.txt"
@@ -249,6 +251,32 @@ class TrainingService:
                 ),
                 source_url=INSTRUCTION_DATA_URL,
             ),
+            CHAT_SFT_DATASET_ID: DatasetSpec(
+                dataset_id=CHAT_SFT_DATASET_ID,
+                tier="chat",
+                label="Minimal chat SFT",
+                path=self._project_root / "data" / "chat" / "chat-sft-mini.json",
+                description=(
+                    "Small multi-turn chat transcripts for a first ChatGPT-like "
+                    "conversation checkpoint."
+                ),
+                recommended_steps=240,
+                recommended_batch_size=1,
+                recommended_block_size=384,
+                recommended_learning_rate=3e-4,
+                recommended_base_model_id="gpt2-124M",
+                comparison_prompt="who are you?",
+                dataset_probe_prompt="What is my name?",
+                output_model_id="gpt2-chat-lora",
+                training_objective="chat-lora",
+                prompt_style="chat",
+                learning_stage="chat-sft",
+                learning_stage_label="Chat SFT",
+                learning_goal=(
+                    "Fine-tune GPT-2 with LoRA on multi-turn chat transcripts so "
+                    "Conversation can answer from session context."
+                ),
+            ),
             BUILDER_DATASET_ID: DatasetSpec(
                 dataset_id=BUILDER_DATASET_ID,
                 tier="custom",
@@ -398,7 +426,7 @@ class TrainingService:
                 f"{request.base_model_id} context_length={model_config.context_length}."
             )
 
-        sample_tokens = 80 if dataset.prompt_style == "instruction" else 24
+        sample_tokens = 80 if dataset.prompt_style in {"instruction", "chat"} else 24
         before_sample = generate_sample(
             model=model,
             tokenizer=tokenizer,
@@ -420,16 +448,35 @@ class TrainingService:
             seed=model_config.seed,
         )
         lora_summary = None
-        if dataset.training_objective == "instruction-lora":
-            lora_summary = apply_lora(model, LoRAConfig())
+        if dataset.training_objective in {"instruction-lora", "chat-lora"}:
+            lora_config = (
+                LoRAConfig(
+                    target_modules=("W_query", "W_key", "W_value", "out_proj")
+                )
+                if dataset.training_objective == "chat-lora"
+                else LoRAConfig()
+            )
+            lora_summary = apply_lora(model, lora_config)
 
         instruction_entries = None
+        chat_entries = None
         if dataset.training_objective in {"instruction-sft", "instruction-lora"}:
             instruction_entries = self._read_instruction_entries(dataset)
             training_summary = train_instruction_language_model(
                 model=model,
                 tokenizer=tokenizer,
                 entries=instruction_entries,
+                device=device,
+                config=training_config,
+                progress_callback=progress_callback,
+                should_cancel=should_cancel,
+            )
+        elif dataset.training_objective in {"chat-sft", "chat-lora"}:
+            chat_entries = self._read_chat_entries(dataset)
+            training_summary = train_chat_language_model(
+                model=model,
+                tokenizer=tokenizer,
+                entries=chat_entries,
                 device=device,
                 config=training_config,
                 progress_callback=progress_callback,
@@ -476,6 +523,16 @@ class TrainingService:
             training_summary["train_examples"] = split_counts["train"]
             training_summary["eval_examples"] = split_counts["eval"]
             training_summary["examples_used_for_training"] = len(instruction_entries)
+        if chat_entries is not None:
+            split_counts = _chat_split_counts(
+                json.loads(dataset.path.read_text(encoding="utf-8"))
+            )
+            training_summary["train_examples"] = split_counts["train"]
+            training_summary["eval_examples"] = split_counts["eval"]
+            training_summary["examples_used_for_training"] = len(chat_entries)
+            training_summary["chat_training_pairs"] = training_summary.get(
+                "chat_training_pairs"
+            )
         training_summary["device"] = str(device)
         training_summary["cuda_available"] = torch.cuda.is_available()
         training_summary["device_name"] = (
@@ -554,12 +611,27 @@ class TrainingService:
         train_entries = [
             entry
             for entry in entries
-            if isinstance(entry, dict) and entry.get("split", "train") == "train"
+            if isinstance(entry, dict)
+            and str(entry.get("split", "train")).strip().lower() == "train"
         ]
         if not train_entries:
             raise ValueError(
                 "Dataset Builder needs at least one train example before training."
             )
+        return train_entries
+
+    def _read_chat_entries(self, dataset: DatasetSpec) -> list[dict]:
+        entries = json.loads(dataset.path.read_text(encoding="utf-8"))
+        if not isinstance(entries, list):
+            raise ValueError(f"Chat dataset must be a JSON list: {dataset.path}")
+        train_entries = [
+            entry
+            for entry in entries
+            if isinstance(entry, dict)
+            and str(entry.get("split", "train")).strip().lower() == "train"
+        ]
+        if not train_entries:
+            raise ValueError("Chat dataset needs at least one train conversation.")
         return train_entries
 
     def _builder_dataset_payload(self) -> dict:
@@ -632,6 +704,8 @@ class TrainingService:
         }
         if spec.training_objective in {"instruction-sft", "instruction-lora"}:
             metadata.update(_instruction_dataset_metadata(text))
+        if spec.training_objective in {"chat-sft", "chat-lora"}:
+            metadata.update(_chat_dataset_metadata(text))
         return metadata
 
     def _record_experiment(
@@ -882,6 +956,22 @@ def _instruction_split_counts(entries: object) -> dict:
     return counts
 
 
+def _chat_split_counts(entries: object) -> dict:
+    counts = {"train": 0, "eval": 0}
+    if not isinstance(entries, list):
+        return counts
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        split = str(entry.get("split", "train")).strip().lower()
+        if split == "eval":
+            counts["eval"] += 1
+        else:
+            counts["train"] += 1
+    return counts
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -959,3 +1049,110 @@ def _first_instruction_example(entries: object) -> dict | None:
         ):
             return entry
     return None
+
+
+def _chat_dataset_metadata(text: str) -> dict:
+    template = (
+        "System: {system}\n"
+        "User: {user message}\n"
+        "Assistant: {assistant response}\n"
+        "User: {latest user message}\n"
+        "Assistant:"
+    )
+    empty = {
+        "example_count": 0,
+        "chat_template": template,
+        "chat_example": None,
+        "formatted_prompt_preview": "",
+        "target_response_preview": "",
+        "chat_training_pairs": 0,
+        "train_examples": 0,
+        "eval_examples": 0,
+    }
+    if not text:
+        return empty
+
+    try:
+        entries = json.loads(text)
+    except json.JSONDecodeError:
+        return empty
+    if not isinstance(entries, list):
+        return empty
+
+    split_counts = _chat_split_counts(entries)
+    example = _first_chat_example(entries)
+    training_pairs = sum(_count_assistant_turns(entry) for entry in entries)
+    if example is None:
+        return {
+            **empty,
+            "example_count": len(entries),
+            "chat_training_pairs": training_pairs,
+            "train_examples": split_counts["train"],
+            "eval_examples": split_counts["eval"],
+        }
+
+    prompt, target = _first_chat_pair(example)
+    return {
+        "example_count": len(entries),
+        "chat_template": template,
+        "chat_example": {
+            "system": str(example.get("system", "")),
+            "messages": example.get("messages", []),
+        },
+        "formatted_prompt_preview": prompt,
+        "target_response_preview": target,
+        "chat_training_pairs": training_pairs,
+        "train_examples": split_counts["train"],
+        "eval_examples": split_counts["eval"],
+    }
+
+
+def _first_chat_example(entries: object) -> dict | None:
+    if not isinstance(entries, list):
+        return None
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        if _first_chat_pair(entry)[0]:
+            return entry
+    return None
+
+
+def _first_chat_pair(entry: dict) -> tuple[str, str]:
+    messages = entry.get("messages")
+    if not isinstance(messages, list):
+        return "", ""
+
+    history: list[dict] = []
+    system_prompt = str(entry.get("system", "")).strip()
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        role = str(message.get("role", "")).strip().lower()
+        content = str(message.get("content", "")).strip()
+        if not content:
+            continue
+        if role == "system":
+            system_prompt = content
+        elif role == "user":
+            history.append({"role": "user", "content": content})
+        elif role == "assistant":
+            prompt = format_chat_transcript(
+                system_prompt,
+                history,
+                append_assistant_prompt=True,
+            )
+            return prompt, content
+    return "", ""
+
+
+def _count_assistant_turns(entry: object) -> int:
+    if not isinstance(entry, dict) or not isinstance(entry.get("messages"), list):
+        return 0
+    return sum(
+        1
+        for message in entry["messages"]
+        if isinstance(message, dict)
+        and str(message.get("role", "")).strip().lower() == "assistant"
+        and str(message.get("content", "")).strip()
+    )
