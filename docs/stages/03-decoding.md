@@ -85,8 +85,9 @@ curl -s -X POST http://127.0.0.1:8000/chat ^
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then the same controls live in
-> the legacy console tabs **Chat** and **Prompt Lab**.
+Open `http://127.0.0.1:3000` and pick **Stage 03 · Decoding**. Each button sends the **same
+request twice** and reports whether the two replies came back identical — the fastest way to see
+which settings are deterministic and which are not.
 
 ## What to observe
 

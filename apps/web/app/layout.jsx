@@ -1,8 +1,9 @@
 import "./globals.css";
+import "./ladder.css";
 
 export const metadata = {
   title: "Chatoken Console",
-  description: "Minimal Web UI learning console for the Chatoken API"
+  description: "Build a minimal ChatGPT-like system from scratch, one idea at a time"
 };
 
 export default function RootLayout({ children }) {

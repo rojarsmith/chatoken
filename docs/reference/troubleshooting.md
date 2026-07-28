@@ -41,6 +41,15 @@ early surprises belong there.
 | `Unknown dataset_id` | Typo, or dataset not prepared | `GET /training/datasets` |
 | Browser blocked by CORS | Web origin not allowed | CORS is enabled for local development; check the API base URL |
 
+## Web console
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Blank page; server log says `Cannot find module './833.js'` or `./vendor-chunks/next.js` | `npm run build` was run while `npm run dev` was running — they share `apps/web/.next`, and the build overwrites the dev server's chunks | Stop the dev server, `rm -rf apps/web/.next`, start it again. Never build while the dev server is running. |
+| Stage page shows "Not migrated yet" | That stage's panel has not been built yet | Follow the stage document's command-line or API steps, and use the legacy tab it names |
+| Ladder shows no models, API pill says offline | The API is not running, or the URL in the top bar is wrong | Start uvicorn on port 8000; the top-bar field is editable and persisted |
+| Progress ticks disappeared | Progress is stored per browser origin in `localStorage` | `localhost:3000` and `127.0.0.1:3000` are different origins — pick one and stay on it |
+
 ## Training
 
 | Symptom | Cause | Fix |

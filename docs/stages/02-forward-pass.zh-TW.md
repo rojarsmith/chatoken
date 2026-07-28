@@ -72,7 +72,8 @@ python scripts\smoke_chat.py --message "Every effort moves you" --max-new-tokens
 
 ### 在控制台
 
-> 階段階梯會在重整的 Phase 2 出現。在那之前，相同內容位於 legacy 頁籤 **GPT Model**。
+開啟 `http://127.0.0.1:3000`，在階梯上選 **Stage 02 · Forward pass**。參數量、context 長度與
+logits 形狀都讀自 `GET /models`，所以它們描述的永遠是實際載入的模型，而不是寫死的副本。
 
 ## What to observe
 

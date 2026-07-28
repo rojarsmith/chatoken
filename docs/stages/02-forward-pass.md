@@ -76,8 +76,9 @@ python scripts\smoke_chat.py --message "Every effort moves you" --max-new-tokens
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then the same content lives in
-> the legacy console tab **GPT Model**.
+Open `http://127.0.0.1:3000` and pick **Stage 02 · Forward pass**. The parameter count, context
+length, and logits shape are read from `GET /models`, so they always describe the model that is
+actually loaded rather than a hard-coded copy.
 
 ## What to observe
 

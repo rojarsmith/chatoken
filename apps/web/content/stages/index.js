@@ -1,0 +1,14 @@
+import s01Tokens from "./s01-tokens";
+import s02ForwardPass from "./s02-forward-pass";
+import s03Decoding from "./s03-decoding";
+
+/**
+ * Stage id -> interactive content. A stage missing from this map still appears
+ * on the ladder; its page points at the stage document and the legacy tab
+ * until it is migrated.
+ */
+export const STAGE_CONTENT = {
+  "01-tokens": s01Tokens,
+  "02-forward-pass": s02ForwardPass,
+  "03-decoding": s03Decoding
+};

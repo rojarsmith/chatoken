@@ -82,9 +82,9 @@ curl -s -X POST http://127.0.0.1:8000/chat/prompt-preview ^
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. This stage has no equivalent screen in
-> the current console — it is one of the two stages being split out of material that is
-> currently buried in script documentation.
+Open `http://127.0.0.1:3000` and pick **Stage 01 · Tokens** on the ladder. The panel encodes in
+the browser using the same one-byte-per-token rule, so the ids update as you type. Press
+**Ask the API** to confirm the count against the server's own tokenizer.
 
 ## What to observe
 

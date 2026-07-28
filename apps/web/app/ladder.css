@@ -1,0 +1,809 @@
+/*
+ * Styles for the stage ladder console (Phase 2 of the restructure).
+ * All classes are prefixed `lx-` so they cannot collide with the legacy
+ * console styles still living in globals.css.
+ */
+
+.lx-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ---------- top bar ---------- */
+
+.lx-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.lx-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.lx-brand strong {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.lx-brand span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.lx-topbar-spacer {
+  flex: 1;
+}
+
+.lx-api-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lx-api-field label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.lx-api-field input {
+  width: 220px;
+  min-height: 34px;
+  font-size: 13px;
+}
+
+.lx-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-alt);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.lx-pill.online {
+  border-color: #b7e3c8;
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.lx-pill.offline {
+  border-color: #f4c4bc;
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.lx-pill.checking {
+  border-color: var(--line-strong);
+}
+
+/* ---------- three-region body ---------- */
+
+.lx-body {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr) 336px;
+  gap: 18px;
+  padding: 18px 20px 28px;
+  align-items: start;
+  flex: 1;
+}
+
+.lx-body.no-playground {
+  grid-template-columns: 264px minmax(0, 1fr);
+}
+
+.lx-body.wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 1300px) {
+  .lx-body,
+  .lx-body.no-playground {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+  .lx-playground {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .lx-body,
+  .lx-body.no-playground {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- ladder rail ---------- */
+
+.lx-rail {
+  position: sticky;
+  top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.lx-rail-progress {
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.lx-rail-progress b {
+  font-size: 13px;
+}
+
+.lx-rail-progress p {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.lx-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+
+.lx-progress-fill {
+  height: 100%;
+  background: var(--blue);
+  border-radius: 999px;
+  transition: width 200ms ease;
+}
+
+.lx-part {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.lx-part-head {
+  display: block;
+  width: 100%;
+  padding: 10px 13px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.lx-part-head b {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.lx-part-head span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.lx-stage-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 13px;
+  border-top: 1px solid var(--line);
+  text-decoration: none;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.lx-stage-link:hover {
+  background: var(--surface-alt);
+}
+
+.lx-stage-link.current {
+  background: #eef4ff;
+  box-shadow: inset 3px 0 0 var(--blue);
+  font-weight: 600;
+}
+
+.lx-stage-num {
+  flex: none;
+  width: 22px;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.lx-stage-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lx-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+}
+
+.lx-dot.done {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.lx-dot.in-progress {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+.lx-soon {
+  flex: none;
+  font-size: 10px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+/* ---------- stage canvas ---------- */
+
+.lx-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.lx-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+
+.lx-stage-head .lx-eyebrow {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.lx-stage-head h1 {
+  margin: 6px 0 0;
+  font-size: 25px;
+  letter-spacing: -0.02em;
+}
+
+.lx-focus {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--blue);
+  background: #f3f7ff;
+  border-radius: 0 10px 10px 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.lx-block-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.lx-card h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.lx-card p {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #37445c;
+}
+
+.lx-card p:last-child {
+  margin-bottom: 0;
+}
+
+.lx-card ol,
+.lx-card ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #37445c;
+}
+
+.lx-card li + li {
+  margin-top: 5px;
+}
+
+.lx-flow {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+  color: #2b3550;
+}
+
+.lx-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #f0dfae;
+  background: var(--amber-bg);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #7a4d06;
+}
+
+.lx-error {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #f4c4bc;
+  background: var(--red-bg);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--red);
+}
+
+/* ---------- controls ---------- */
+
+.lx-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.lx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.lx-field.grow {
+  flex: 1;
+  min-width: 220px;
+}
+
+.lx-field label {
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--muted);
+}
+
+.lx-field input,
+.lx-field select {
+  min-height: 38px;
+}
+
+.lx-field.narrow input,
+.lx-field.narrow select {
+  width: 118px;
+}
+
+.lx-primary {
+  min-height: 38px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.lx-primary:hover:not(:disabled) {
+  background: var(--blue-dark);
+}
+
+.lx-secondary {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.lx-secondary:hover:not(:disabled) {
+  background: var(--surface-alt);
+}
+
+.lx-advanced {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.lx-advanced summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--muted);
+}
+
+.lx-advanced .lx-controls {
+  margin-top: 12px;
+}
+
+/* ---------- data display ---------- */
+
+.lx-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.lx-metric {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-alt);
+}
+
+.lx-metric span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.lx-metric b {
+  display: block;
+  margin-top: 4px;
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.lx-metric small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.lx-code {
+  margin: 0;
+  padding: 11px 13px;
+  background: #1f2937;
+  color: #e6edf6;
+  border-radius: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.lx-ids {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.lx-id {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 34px;
+  padding: 3px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface-alt);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lx-id small {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.lx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.lx-table th,
+.lx-table td {
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.lx-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.lx-table code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.lx-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.lx-step {
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-alt);
+}
+
+.lx-step code {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.lx-step b {
+  display: block;
+  font-size: 13.5px;
+  margin-bottom: 4px;
+}
+
+.lx-step p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ---------- exit check ---------- */
+
+.lx-check {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 7px 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.lx-check input {
+  width: auto;
+  min-height: 0;
+  margin-top: 3px;
+  accent-color: var(--blue);
+}
+
+.lx-stage-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lx-deepdive {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.lx-deepdive code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+/* ---------- playground ---------- */
+
+.lx-playground {
+  position: sticky;
+  top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.lx-playground h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.lx-playground textarea {
+  min-height: 76px;
+  font-size: 13px;
+}
+
+.lx-playground-out {
+  min-height: 84px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.lx-playground-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ---------- curriculum map ---------- */
+
+.lx-map-head {
+  text-align: center;
+  padding: 26px 20px 6px;
+}
+
+.lx-map-head h1 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+}
+
+.lx-map-head p {
+  margin: 10px auto 0;
+  max-width: 640px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.lx-map-parts {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.lx-map-part h2 {
+  margin: 0 0 3px;
+  font-size: 17px;
+}
+
+.lx-map-part > p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.lx-map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.lx-map-card {
+  display: block;
+  padding: 14px 15px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.lx-map-card:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
+}
+
+.lx-map-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.lx-map-card-top b {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.lx-map-card h3 {
+  margin: 0 0 5px;
+  font-size: 15px;
+}
+
+.lx-map-card p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ---------- workbench ---------- */
+
+.lx-workbench {
+  margin: 0 20px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.lx-workbench summary {
+  padding: 11px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lx-workbench-body {
+  padding: 0 16px 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.lx-workbench-body h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}

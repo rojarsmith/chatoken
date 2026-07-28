@@ -1,0 +1,273 @@
+{
+  "version": 1,
+  "note": "Single source of truth for the Chatoken course. Consumed by apps/web at build time and by scripts/check_curriculum.py. Stage ids must match docs/stages/<id>.md and the web route /stage/<id>.",
+  "parts": [
+    {
+      "id": "generate",
+      "number": 1,
+      "title": "Generate",
+      "tagline": "a model can produce tokens",
+      "stages": ["01-tokens", "02-forward-pass", "03-decoding"]
+    },
+    {
+      "id": "train",
+      "number": 2,
+      "title": "Train",
+      "tagline": "a model can learn from data",
+      "stages": ["04-training-loop", "05-training-knobs", "06-data-scale", "07-checkpoints"]
+    },
+    {
+      "id": "reuse",
+      "number": 3,
+      "title": "Reuse",
+      "tagline": "stand on someone else's training",
+      "stages": ["08-pretrained-gpt2", "09-prompt-format"]
+    },
+    {
+      "id": "align",
+      "number": 4,
+      "title": "Align",
+      "tagline": "make it follow instructions and hold a conversation",
+      "stages": [
+        "10-instruction-sft",
+        "11-lora",
+        "12-chat-sft",
+        "13-your-own-dataset",
+        "14-compare-runs"
+      ]
+    },
+    {
+      "id": "ship",
+      "number": 5,
+      "title": "Ship",
+      "tagline": "turn a model into a system",
+      "stages": ["15-conversation-memory", "16-streaming-cancel", "17-deploy-limits"]
+    }
+  ],
+  "stages": [
+    {
+      "id": "01-tokens",
+      "number": 1,
+      "part": "generate",
+      "title": "Tokens",
+      "focus": "The model never sees your text. It sees a list of integer ids.",
+      "doc": "docs/stages/01-tokens.md",
+      "docZh": "docs/stages/01-tokens.zh-TW.md",
+      "requires": [],
+      "legacyTab": null,
+      "implemented": true
+    },
+    {
+      "id": "02-forward-pass",
+      "number": 2,
+      "part": "generate",
+      "title": "Forward pass",
+      "focus": "Ids become vectors, vectors flow through blocks, and what comes out is one score per vocabulary entry.",
+      "doc": "docs/stages/02-forward-pass.md",
+      "docZh": "docs/stages/02-forward-pass.zh-TW.md",
+      "requires": ["01-tokens"],
+      "legacyTab": "GPT Model",
+      "implemented": true
+    },
+    {
+      "id": "03-decoding",
+      "number": 3,
+      "part": "generate",
+      "title": "Decoding",
+      "focus": "Sampling controls the shape of the output. It cannot add knowledge.",
+      "doc": "docs/stages/03-decoding.md",
+      "docZh": "docs/stages/03-decoding.zh-TW.md",
+      "requires": ["02-forward-pass"],
+      "legacyTab": "Chat",
+      "implemented": true
+    },
+    {
+      "id": "04-training-loop",
+      "number": 4,
+      "part": "train",
+      "title": "Training loop",
+      "focus": "Loss is the signal that turns data into weights.",
+      "doc": "docs/stages/04-training-loop.md",
+      "docZh": "docs/stages/04-training-loop.zh-TW.md",
+      "requires": ["03-decoding"],
+      "legacyTab": "From Scratch",
+      "implemented": false
+    },
+    {
+      "id": "05-training-knobs",
+      "number": 5,
+      "part": "train",
+      "title": "Training knobs",
+      "focus": "Hyperparameters change the loop, not the architecture.",
+      "doc": "docs/stages/05-training-knobs.md",
+      "docZh": "docs/stages/05-training-knobs.zh-TW.md",
+      "requires": ["04-training-loop"],
+      "legacyTab": "Training Config",
+      "implemented": false
+    },
+    {
+      "id": "06-data-scale",
+      "number": 6,
+      "part": "train",
+      "title": "Data scale",
+      "focus": "Better data beats more steps.",
+      "doc": "docs/stages/06-data-scale.md",
+      "docZh": "docs/stages/06-data-scale.zh-TW.md",
+      "requires": ["05-training-knobs"],
+      "legacyTab": "Raw Text",
+      "implemented": false
+    },
+    {
+      "id": "07-checkpoints",
+      "number": 7,
+      "part": "train",
+      "title": "Checkpoints",
+      "focus": "A model is a file with lineage.",
+      "doc": "docs/stages/07-checkpoints.md",
+      "docZh": "docs/stages/07-checkpoints.zh-TW.md",
+      "requires": ["06-data-scale"],
+      "legacyTab": "Checkpoints",
+      "implemented": false
+    },
+    {
+      "id": "08-pretrained-gpt2",
+      "number": 8,
+      "part": "reuse",
+      "title": "Pretrained GPT-2",
+      "focus": "The architecture does not change. Someone else already paid for the training.",
+      "doc": "docs/stages/08-pretrained-gpt2.md",
+      "docZh": "docs/stages/08-pretrained-gpt2.zh-TW.md",
+      "requires": ["07-checkpoints"],
+      "legacyTab": "GPT-2",
+      "implemented": false
+    },
+    {
+      "id": "09-prompt-format",
+      "number": 9,
+      "part": "reuse",
+      "title": "Prompt format",
+      "focus": "Formatting changes behavior with zero weight change.",
+      "doc": "docs/stages/09-prompt-format.md",
+      "docZh": "docs/stages/09-prompt-format.zh-TW.md",
+      "requires": ["08-pretrained-gpt2"],
+      "legacyTab": "Prompt Lab",
+      "implemented": false
+    },
+    {
+      "id": "10-instruction-sft",
+      "number": 10,
+      "part": "align",
+      "title": "Instruction SFT",
+      "focus": "Training on (instruction, response) pairs is what makes a model answer.",
+      "doc": "docs/stages/10-instruction-sft.md",
+      "docZh": "docs/stages/10-instruction-sft.zh-TW.md",
+      "requires": ["09-prompt-format"],
+      "legacyTab": "Instruction",
+      "implemented": false
+    },
+    {
+      "id": "11-lora",
+      "number": 11,
+      "part": "align",
+      "title": "LoRA",
+      "focus": "The same behavior change, training roughly one percent as many parameters.",
+      "doc": "docs/stages/11-lora.md",
+      "docZh": "docs/stages/11-lora.zh-TW.md",
+      "requires": ["10-instruction-sft"],
+      "legacyTab": "LoRA",
+      "implemented": false
+    },
+    {
+      "id": "12-chat-sft",
+      "number": 12,
+      "part": "align",
+      "title": "Chat SFT",
+      "focus": "Multi-turn transcripts teach turn-taking, and the loss should only cover the assistant's words.",
+      "doc": "docs/stages/12-chat-sft.md",
+      "docZh": "docs/stages/12-chat-sft.zh-TW.md",
+      "requires": ["11-lora"],
+      "legacyTab": "Chat SFT",
+      "implemented": false
+    },
+    {
+      "id": "13-your-own-dataset",
+      "number": 13,
+      "part": "align",
+      "title": "Your own dataset",
+      "focus": "Your data is the product. Fine-tuning quality is decided before the optimizer starts.",
+      "doc": "docs/stages/13-your-own-dataset.md",
+      "docZh": "docs/stages/13-your-own-dataset.zh-TW.md",
+      "requires": ["12-chat-sft"],
+      "legacyTab": "Dataset Builder",
+      "implemented": false
+    },
+    {
+      "id": "14-compare-runs",
+      "number": 14,
+      "part": "align",
+      "title": "Compare runs",
+      "focus": "Compare only what is comparable.",
+      "doc": "docs/stages/14-compare-runs.md",
+      "docZh": "docs/stages/14-compare-runs.zh-TW.md",
+      "requires": ["13-your-own-dataset"],
+      "legacyTab": "Experiments",
+      "implemented": false
+    },
+    {
+      "id": "15-conversation-memory",
+      "number": 15,
+      "part": "ship",
+      "title": "Conversation memory",
+      "focus": "The model is stateless. The application supplies the memory.",
+      "doc": "docs/stages/15-conversation-memory.md",
+      "docZh": "docs/stages/15-conversation-memory.zh-TW.md",
+      "requires": ["14-compare-runs"],
+      "legacyTab": "Conversation",
+      "implemented": false
+    },
+    {
+      "id": "16-streaming-cancel",
+      "number": 16,
+      "part": "ship",
+      "title": "Streaming & cancel",
+      "focus": "Tokens arrive one at a time, and users must be able to stop.",
+      "doc": "docs/stages/16-streaming-cancel.md",
+      "docZh": "docs/stages/16-streaming-cancel.zh-TW.md",
+      "requires": ["15-conversation-memory"],
+      "legacyTab": "Chat",
+      "implemented": false
+    },
+    {
+      "id": "17-deploy-limits",
+      "number": 17,
+      "part": "ship",
+      "title": "Deploy & limits",
+      "focus": "Cost is context length × concurrency.",
+      "doc": "docs/stages/17-deploy-limits.md",
+      "docZh": "docs/stages/17-deploy-limits.zh-TW.md",
+      "requires": ["16-streaming-cancel"],
+      "legacyTab": "Deploy",
+      "implemented": false
+    }
+  ],
+  "tracks": [
+    {
+      "id": "external-models",
+      "title": "External providers",
+      "focus": "Compare what you built against a hosted model, and keep the credentials off the browser.",
+      "doc": "docs/tracks/external-models.md",
+      "docZh": "docs/tracks/external-models.zh-TW.md",
+      "availableAfter": "09-prompt-format",
+      "legacyTab": "External",
+      "implemented": false
+    }
+  ],
+  "reference": [
+    { "id": "setup", "title": "Setup", "doc": "docs/reference/setup.md", "docZh": "docs/reference/setup.zh-TW.md" },
+    { "id": "gpu-runtime", "title": "GPU runtime", "doc": "docs/reference/gpu-runtime.md", "docZh": "docs/reference/gpu-runtime.zh-TW.md" },
+    { "id": "api", "title": "API", "doc": "docs/reference/api.md", "docZh": "docs/reference/api.zh-TW.md" },
+    { "id": "architecture", "title": "Architecture", "doc": "docs/reference/architecture.md", "docZh": "docs/reference/architecture.zh-TW.md" },
+    { "id": "glossary", "title": "Glossary", "doc": "docs/reference/glossary.md", "docZh": "docs/reference/glossary.zh-TW.md" },
+    { "id": "troubleshooting", "title": "Troubleshooting", "doc": "docs/reference/troubleshooting.md", "docZh": "docs/reference/troubleshooting.zh-TW.md" }
+  ]
+}

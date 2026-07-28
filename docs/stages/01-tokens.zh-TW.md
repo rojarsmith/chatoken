@@ -78,8 +78,9 @@ curl -s -X POST http://127.0.0.1:8000/chat/prompt-preview ^
 
 ### 在控制台
 
-> 階段階梯會在重整的 Phase 2 出現。本階段在目前的控制台沒有對應畫面——它正是從腳本文件裡
-> 拆出來的兩個新階段之一。
+開啟 `http://127.0.0.1:3000`，在階梯上選 **Stage 01 · Tokens**。面板在瀏覽器端使用同樣的
+「一個位元組一個 token」規則編碼，所以你打字時 ids 會即時更新。按 **Ask the API** 可以拿它跟
+伺服器自己的 tokenizer 對照。
 
 ## What to observe
 
