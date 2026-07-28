@@ -58,7 +58,10 @@ instruction 範例 -> train/eval 切分 -> prompt 樣板 -> SFT 迴圈 -> checkp
 curl -s http://127.0.0.1:8000/training/dataset-builder
 ```
 
-### 若檔案是空的，先建立起始範例
+### 還原起始範例
+
+builder 在第一次被讀取時就會**自動 seed**，所以全新 clone 一開始就有三筆範例——你不需要這一步
+就能開始。只有在檔案不存在、或你把範例全部刪光時，它才會把起始範例放回去。
 
 ```cmd
 curl -s -X POST http://127.0.0.1:8000/training/dataset-builder/seed
@@ -127,9 +130,9 @@ curl -s -X POST http://127.0.0.1:8000/training/jobs ^
 
 | 症狀 | 原因 | 解法 |
 | --- | --- | --- |
-| builder 資料集是空的 | 從未 seed | `POST /training/dataset-builder/seed` |
+| builder 資料集是空的 | 你把範例全部刪光了 | `POST /training/dataset-builder/seed` 會還原起始範例 |
 | 訓練因為沒有範例而失敗 | 所有範例都標成 `eval` | 至少要有一筆 `split: train` |
-| 修改消失了 | `data/custom/` 被 git 忽略，且被清掉了 | 重新 seed 並補回；重要的請自行匯出 |
+| 修改消失了 | `data/custom/` 被 git 忽略，且被清掉了 | 起始範例會自動回來，你自己加的不會——重要的請自行匯出 |
 | 模型回答與之前完全一樣 | 訓練範例太少，或步數太少 | 先加範例，再加步數——這正是本階段的重點 |
 
 ## Code map

@@ -49,18 +49,24 @@ export default function DatasetBuilderPanel() {
       </Metrics>
 
       {examples.length === 0 ? (
-        <button
-          type="button"
-          className="lx-secondary"
-          style={{ marginTop: "12px" }}
-          disabled={seed.pending}
-          onClick={async () => {
-            await seed.run();
-            builder.run();
-          }}
-        >
-          <Sprout size={13} /> Seed starter examples
-        </button>
+        <>
+          <button
+            type="button"
+            className="lx-secondary"
+            style={{ marginTop: "12px" }}
+            disabled={seed.pending}
+            onClick={async () => {
+              await seed.run();
+              builder.run();
+            }}
+          >
+            <Sprout size={13} /> Restore starter examples
+          </button>
+          <p className="lx-deepdive" style={{ marginTop: "8px" }}>
+            The builder seeds itself on first use, so this only appears once you have deleted
+            every example.
+          </p>
+        </>
       ) : null}
 
       <div className="lx-controls" style={{ marginTop: "14px" }}>

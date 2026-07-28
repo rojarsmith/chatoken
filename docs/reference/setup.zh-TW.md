@@ -95,6 +95,16 @@ python -m pytest
 
 會建立 checkpoint 或實驗紀錄的測試在結束後會還原先前狀態，因此執行測試不會污染你自己的訓練歷史。
 
+另外兩個檢查用來防止課程與文件互相漂移：
+
+```cmd
+python scripts\check_curriculum.py
+python scripts\check_docs.py
+```
+
+前者驗證 `curriculum.json`、階段文件與控制台註冊表三者一致；後者驗證所有連結都能解析，
+且文件中的 `curl` 範例仍符合資料集註冊表建議的設定。
+
 ## 東西會寫到哪裡
 
 | 路徑 | 內容 | 在 git 中 |

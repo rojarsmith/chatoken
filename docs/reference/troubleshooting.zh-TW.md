@@ -68,7 +68,7 @@
 | 資料集 `status` 不是 `ready` | 尚未下載 | `POST /training/datasets/{id}/prepare` |
 | GPT-2 下載失敗 | 網路問題，或連不到 Hugging Face | 重試；`.complete` 標記代表不完整的下載不被信任 |
 | 磁碟空間不足 | GPT-2 124M 約 500 MB | 維持使用 124M |
-| builder 資料集是空的 | 從未 seed | `POST /training/dataset-builder/seed` |
+| builder 資料集是空的 | 你把範例全部刪光了（否則它會自動 seed） | `POST /training/dataset-builder/seed` 會還原起始範例 |
 | builder 範例消失 | `data/custom/` 被 git 忽略且被清掉 | 重新 seed；重要的請自行匯出 |
 
 ## 模型與 checkpoint

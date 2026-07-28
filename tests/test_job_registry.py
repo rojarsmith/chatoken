@@ -27,7 +27,9 @@ def test_chat_jobs_have_no_progress_list(client):
     assert "progress" not in finished
 
 
-def test_training_and_pretrained_jobs_do_have_progress(client):
+def test_training_and_pretrained_jobs_do_have_progress(client, preserve_artifacts):
+    # preserve_artifacts because these jobs are real: if the cancel below loses
+    # the race, the training run finishes and writes a checkpoint.
     training = client.post("/training/jobs", json={
         "dataset_id": "every-effort", "base_model_id": "random-tiny-byte",
         "output_model_id": "pytest-shape", "max_steps": 1,

@@ -69,7 +69,7 @@ early surprises belong there.
 | Dataset `status` is not `ready` | Not downloaded yet | `POST /training/datasets/{id}/prepare` |
 | GPT-2 download fails | Network, or Hugging Face unreachable | Retry; the `.complete` marker means partial downloads are not trusted |
 | Out of disk space | GPT-2 124M is ~500 MB | Stay on 124M |
-| Builder dataset is empty | Never seeded | `POST /training/dataset-builder/seed` |
+| Builder dataset is empty | You deleted every example (it is seeded automatically otherwise) | `POST /training/dataset-builder/seed` restores the starters |
 | Builder examples vanished | `data/custom/` is git-ignored and was cleaned | Re-seed; export anything worth keeping |
 
 ## Models and checkpoints

@@ -64,7 +64,12 @@ selects become gradient updates.
 curl -s http://127.0.0.1:8000/training/dataset-builder
 ```
 
-### Seed the starter examples if the file is empty
+### Restore the starter examples
+
+The builder is **seeded automatically** the first time anything reads it, so a fresh
+clone already has three examples — you do not need this to get started. It only
+does something when the file is missing or you have deleted every example, in
+which case it puts the starters back.
 
 ```cmd
 curl -s -X POST http://127.0.0.1:8000/training/dataset-builder/seed
@@ -135,9 +140,9 @@ You may continue when all of these are true:
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| The builder dataset is empty | Never seeded | `POST /training/dataset-builder/seed` |
+| The builder dataset is empty | You deleted every example | `POST /training/dataset-builder/seed` restores the starters |
 | Training fails with no examples | Every example is marked `eval` | At least one must be `split: train` |
-| Changes vanish | `data/custom/` was cleaned; it is git-ignored | Re-seed and re-add; export anything you want to keep |
+| Changes vanish | `data/custom/` was cleaned; it is git-ignored | The starters come back automatically; your own rows do not — export anything worth keeping |
 | Model answers identically to before | Too few train examples, or too few steps | Add examples first, steps second — that is this stage's point |
 
 ## Code map

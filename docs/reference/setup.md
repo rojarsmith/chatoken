@@ -98,6 +98,18 @@ python -m pytest
 Tests that create checkpoints or experiment records restore the previous state
 afterwards, so running them never pollutes your own training history.
 
+Two more checks keep the course and its documentation from drifting apart:
+
+```cmd
+python scripts\check_curriculum.py
+python scripts\check_docs.py
+```
+
+The first verifies that `curriculum.json`, the stage documents, and the console
+registry agree. The second verifies that every link resolves and that the `curl`
+examples in the documentation still match the settings the dataset registry
+recommends.
+
 ## Where things are written
 
 | Path | Contents | In git |
