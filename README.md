@@ -2,147 +2,58 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-Chatoken is an educational project for building a minimal ChatGPT-like system from scratch. It starts with a tiny PyTorch GPT model, exposes it through an AI API backend, and prepares the path for a Next.js Web UI.
+Chatoken is an educational project for building a minimal ChatGPT-like system from scratch.
+It starts with a tiny PyTorch GPT model, exposes it through an AI API backend, and drives a
+Next.js web console — the whole path from random weights, through training, fine-tuning, and
+serving.
 
-The goal is not to build a powerful assistant immediately. The goal is to help software developers experience the full learning path:
+The goal is not a powerful assistant. The goal is to walk the path in order, one idea at a
+time, and understand every step.
 
-1. A randomly initialized model that can generate tokens but cannot use language well.
-2. A tiny model trained on very small text data.
-3. A model trained on more data or for more steps.
-4. A downloaded pretrained model.
-5. A fine-tuned model compared against the original base model.
+## → [Start the course](docs/README.md)
 
-## Current Scope
+Seventeen stages in five parts. Each stage teaches exactly one new idea and builds on the one
+before it:
 
-This first version builds the smallest usable backend skeleton:
+| Part | Stages | What you end up with |
+| --- | --- | --- |
+| 1 · Generate | 01–03 | A model that produces tokens |
+| 2 · Train | 04–07 | A model that learned from your data, saved as a checkpoint |
+| 3 · Reuse | 08–09 | Pretrained GPT-2 running in the same code |
+| 4 · Align | 10–14 | Instruction tuning, LoRA, chat tuning, your own dataset, evaluation |
+| 5 · Ship | 15–17 | Sessions, streaming, and a deployment cost model |
 
-- `packages/llm_core`: GPT model, tokenizer, and text generation logic.
-- `apps/api`: FastAPI chat API with synchronous and asynchronous job endpoints.
-- `apps/web`: Next.js learning console for chat, training, checkpoints, and comparison.
-- `scripts/smoke_chat.py`: A no-server smoke test for the model output.
-- `docs/learning-experience.md`: A guided checklist for validating the first learning loop.
+Every document is available in English and 繁體中文.
 
-## Create and Activate the Virtual Environment
+## Setup
 
-All Python commands in this project should run inside the project-local `.venv`.
-
-Use Windows Command Prompt (`cmd.exe`) for the commands below. The `python` command must point to Windows CPython 3.11, 3.12, or 3.13. Do not use Python 3.14 for now, because PyTorch wheels are not available for that version in this setup.
-
-Check which Python executable `cmd.exe` will use:
+All Python commands run inside the project-local `.venv`. Use Windows Command Prompt
+(`cmd.exe`) with Windows CPython **3.11, 3.12, or 3.13** — not 3.14, because PyTorch wheels
+are unavailable for it in this setup.
 
 ```cmd
 where python
 python --version
-python -c "import sys; raise SystemExit(0 if (3, 11) <= sys.version_info[:2] < (3, 14) else 'Use Python 3.11, 3.12, or 3.13 for this project')"
-```
-
-For a fresh setup:
-
-```cmd
-python -m venv .venv
-.venv\Scripts\activate.bat
-
-python -m pip install --upgrade pip
-python -c "import sys; print(sys.executable); print(sys.version)"
-python -m pip install -e . -r apps\api\requirements.txt
-```
-
-If you created `.venv` with the wrong Python version, recreate it:
-
-```cmd
-if defined VIRTUAL_ENV call deactivate
-if exist .venv rmdir /s /q .venv
-
-where python
-python --version
-python -c "import sys; raise SystemExit(0 if (3, 11) <= sys.version_info[:2] < (3, 14) else 'Use Python 3.11, 3.12, or 3.13 for this project')"
 
 python -m venv .venv
 .venv\Scripts\activate.bat
 
 python -m pip install --upgrade pip
-python -c "import sys; print(sys.executable); print(sys.version)"
 python -m pip install -e . -r apps\api\requirements.txt
 ```
 
-After activation, `python` and `pip` should resolve to the `.venv` environment.
+Full details, including how to recreate a venv built with the wrong Python version, are in
+[Setup](docs/reference/setup.md).
 
-## Validate the Learning Experience First
+## Run it
 
-After the virtual environment is activated, run the smoke test. It loads a completely untrained tiny GPT model and generates a continuation from the same prompt.
-
-```cmd
-python scripts/smoke_chat.py --message "Every effort moves you" --max-new-tokens 24
-```
-
-You should observe:
-
-1. The output does not look like a real answer because the model weights are random.
-2. The prompt is converted into tokens, then the model generates one token at a time.
-3. This result is the baseline before any training.
-
-Try changing generation parameters:
-
-```cmd
-python scripts/smoke_chat.py --message "Every effort moves you" --max-new-tokens 12
-python scripts/smoke_chat.py --message "Every effort moves you" --max-new-tokens 40 --temperature 1.0 --top-k 20
-```
-
-What to observe:
-
-- `max-new-tokens` controls the generated length.
-- `temperature=0` always picks the highest-scoring token.
-- `temperature>0` samples from the probability distribution.
-- An untrained model can generate tokens, but it has not learned language patterns yet.
-
-## Start the API
+Start the API:
 
 ```cmd
 python -m uvicorn apps.api.main:app --reload --port 8000
 ```
 
-## Validate the Synchronous Chat API
-
-These examples use `curl` in Windows Command Prompt.
-
-```cmd
-curl -s http://127.0.0.1:8000/health
-curl -s http://127.0.0.1:8000/models
-
-curl -s -X POST http://127.0.0.1:8000/chat ^
-  -H "Content-Type: application/json" ^
-  -d "{\"message\":\"Every effort moves you\",\"max_new_tokens\":24}"
-```
-
-## Validate the Asynchronous Chat Job
-
-```cmd
-for /f %i in ('curl -s -X POST http://127.0.0.1:8000/chat/jobs -H "Content-Type: application/json" -d "{\"message\":\"Every effort moves you\",\"max_new_tokens\":24}" ^| python -c "import sys,json; print(json.load(sys.stdin)['job_id'])"') do set JOB_ID=%i
-
-curl -s "http://127.0.0.1:8000/chat/jobs/%JOB_ID%"
-```
-
-## Train the Tiny Model
-
-Run the command-line training smoke test:
-
-```cmd
-python scripts\smoke_train.py --max-steps 80 --eval-every 10
-```
-
-Or start an API training job:
-
-```cmd
-for /f %i in ('curl -s -X POST http://127.0.0.1:8000/training/jobs -H "Content-Type: application/json" -d "{\"dataset_id\":\"every-effort\",\"base_model_id\":\"random-tiny-byte\",\"output_model_id\":\"trained-tiny-byte\",\"max_steps\":80,\"eval_every\":10,\"load_when_complete\":true}" ^| python -c "import sys,json; print(json.load(sys.stdin)['job_id'])"') do set TRAINING_JOB_ID=%i
-
-curl -s "http://127.0.0.1:8000/training/jobs/%TRAINING_JOB_ID%"
-```
-
-After the job succeeds, compare `random-tiny-byte` and `trained-tiny-byte` with the same `/chat` prompt.
-
-## Start the Web Learning Console
-
-Keep the API running, then open a second Windows Command Prompt:
+Start the web console in a second Command Prompt:
 
 ```cmd
 cd apps\web
@@ -150,53 +61,38 @@ npm install
 npm run dev
 ```
 
-Open `http://127.0.0.1:3000` and use the console to chat, train, load checkpoints, and compare model outputs.
+Then open `http://127.0.0.1:3000`.
 
-## First-Stage Learning Conclusion
+## Confirm it works
 
-This version should help you confirm three things:
+This runs the model end to end without any server:
 
-1. A GPT architecture written in this project can be called by an API.
-2. An untrained model can generate tokens, but the output has no language ability yet.
-3. The API already has synchronous and asynchronous entry points, so the next step can add training jobs and compare results before and after training.
+```cmd
+python scripts\smoke_chat.py --message "Every effort moves you" --max-new-tokens 24
+```
 
-The recommended next milestone is `training/jobs`: train a tiny model on the shortest useful text dataset, save it as a checkpoint, then return to `/chat` and compare the generated output.
+Output that looks like escaped bytes is **correct** — the model is untrained.
+[Stage 01](docs/stages/01-tokens.md) explains why, and the course goes on from there.
 
-## More Documentation
+## Project layout
 
-- [Learning experience checklist](docs/learning-experience.md)
-- [`smoke_chat.py` explained](docs/smoke-chat.md)
-- [Minimal training loop](docs/training-loop.md)
-- [`smoke_train.py` explained](docs/smoke-train.md)
-- [Model Foundations](docs/model-foundations.md)
-- [Minimal Web UI learning console](docs/web-console.md)
-- [Dataset ladder and training experiments](docs/dataset-ladder-experiments.md)
-- [GPT-2 Pretrained and Instruction Prompts](docs/gpt2-pretrained.md)
-- [LoRA / Parameter-Efficient Fine-Tuning](docs/lora-peft.md)
-- [Minimal GPU Chat Model](docs/minimal-chat-model.md)
-- [Training Data Management and Dataset Builder](docs/dataset-builder.md)
-- [Model Versions and Experiment Comparison](docs/model-version-experiment-comparison.md)
-- [Streaming Chat and Job Cancellation](docs/streaming-chat-cancel.md)
-- [Inference Modes and Prompt Template Playground](docs/inference-prompt-playground.md)
-- [External Model Integration](docs/external-model-integration.md)
-- [Deployment and Resource Limits](docs/deployment-resource-limits.md)
-- [Multi-Turn Conversation Memory](docs/conversation-memory.md)
-- [GPU Runtime Setup for PyTorch](docs/gpu-runtime.md)
-- [`smoke_train.py` 繁體中文說明](docs/smoke-train.zh-TW.md)
-- [繁體中文學習驗證清單](docs/learning-experience.zh-TW.md)
-- [`smoke_chat.py` 繁體中文說明](docs/smoke-chat.zh-TW.md)
-- [最小訓練閉環](docs/training-loop.zh-TW.md)
-- [模型基礎原理](docs/model-foundations.zh-TW.md)
-- [最小 Web UI 學習控制台](docs/web-console.zh-TW.md)
-- [資料規模階梯與訓練實驗記錄](docs/dataset-ladder-experiments.zh-TW.md)
-- [GPT-2 Pretrained 與 Instruction Prompt](docs/gpt2-pretrained.zh-TW.md)
-- [LoRA / Parameter-Efficient Fine-Tuning](docs/lora-peft.zh-TW.md)
-- [最小 GPU Chat Model](docs/minimal-chat-model.zh-TW.md)
-- [訓練資料管理與 Dataset Builder](docs/dataset-builder.zh-TW.md)
-- [模型版本與實驗比較強化](docs/model-version-experiment-comparison.zh-TW.md)
-- [Streaming Chat 與取消任務](docs/streaming-chat-cancel.zh-TW.md)
-- [推論模式與 Prompt Template Playground](docs/inference-prompt-playground.zh-TW.md)
-- [外部模型整合](docs/external-model-integration.zh-TW.md)
-- [部署與資源限制](docs/deployment-resource-limits.zh-TW.md)
-- [多輪對話與會話記憶](docs/conversation-memory.zh-TW.md)
-- [PyTorch GPU Runtime 設定](docs/gpu-runtime.zh-TW.md)
+| Path | Contents |
+| --- | --- |
+| `packages/llm_core` | The model: tokenizer, GPT architecture, generation, training, checkpoints, LoRA |
+| `apps/api` | FastAPI backend — endpoints, jobs, services |
+| `apps/web` | Next.js learning console |
+| `scripts` | No-server smoke tests for generation and training |
+| `data` | Datasets, from a 4-line tiny file up to raw prose and instruction data |
+| `models` | Checkpoints, downloaded GPT-2 weights, experiment log (all git-ignored) |
+| `docs` | The course, the optional track, and the reference set |
+
+[Architecture](docs/reference/architecture.md) explains how the three layers fit together.
+
+## Documentation
+
+- [Course index](docs/README.md) — the ordered path, start here
+- [Setup](docs/reference/setup.md) · [GPU runtime](docs/reference/gpu-runtime.md) ·
+  [API](docs/reference/api.md) · [Architecture](docs/reference/architecture.md) ·
+  [Glossary](docs/reference/glossary.md) · [Troubleshooting](docs/reference/troubleshooting.md)
+- [External providers track](docs/tracks/external-models.md) — optional
+- [Restructure plan](docs/restructure-plan.md) — why the project is organized this way

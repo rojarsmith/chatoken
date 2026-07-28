@@ -2,147 +2,55 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-Chatoken 是一個教學型專案，用來從零開始建立一個最小版的 ChatGPT 類系統。專案會先從 tiny PyTorch GPT 模型開始，接出 AI API 後端，並為後續 Next.js Web UI 做準備。
+Chatoken 是一個教學型專案，用來從零開始建立一個最小版的 ChatGPT 類系統。它從一個 tiny PyTorch
+GPT 模型開始，接出 AI API 後端，並驅動一個 Next.js Web 控制台——完整走過從隨機權重、訓練、
+微調到服務的整條路徑。
 
-這個專案的目標不是一開始就做出強大的助理，而是幫助軟體開發者完整體驗以下路徑：
+目標不是做出一個強大的助理，而是照順序走完這條路，一次一個觀念，並理解每一步。
 
-1. 隨機初始化模型可以產生 token，但還不會使用語言。
-2. tiny 模型使用極小文字資料訓練後會出現什麼變化。
-3. 使用更多資料或更多訓練步數後，模型效果如何改變。
-4. 下載別人訓練好的 pretrained model 後，效果有什麼差異。
-5. fine-tuned model 和原始 base model 的行為差異。
+## → [開始課程](docs/README.zh-TW.md)
 
-## 目前範圍
+五個部分、十七個階段。每個階段只教一個新觀念，並疊在前一個之上：
 
-第一版只建立最小可用後端骨架：
+| Part | 階段 | 你會得到什麼 |
+| --- | --- | --- |
+| 1 · Generate | 01–03 | 一個會產生 token 的模型 |
+| 2 · Train | 04–07 | 一個從你的資料學到東西、並存成 checkpoint 的模型 |
+| 3 · Reuse | 08–09 | 在同一份程式碼中跑起來的 pretrained GPT-2 |
+| 4 · Align | 10–14 | Instruction tuning、LoRA、chat tuning、你自己的資料集、評估 |
+| 5 · Ship | 15–17 | 會話、串流，以及一套部署成本模型 |
 
-- `packages/llm_core`：GPT 模型、tokenizer、文字生成邏輯。
-- `apps/api`：FastAPI chat API，包含同步與非同步 job 端點。
-- `apps/web`：Next.js 學習控制台，用於聊天、訓練、checkpoint 與模型比較。
-- `scripts/smoke_chat.py`：不啟動伺服器也能檢查模型輸出的 smoke test。
-- `docs/learning-experience.md`：第一階段學習閉環的英文驗證清單。
+所有文件都有英文與繁體中文版本。
 
-## 建立並啟用 Virtual Environment
+## 安裝設定
 
-本專案所有 Python 指令都應該在專案本地的 `.venv` 內執行。
-
-以下指令請使用 Windows Command Prompt (`cmd.exe`)。`python` 指令必須指向 Windows CPython 3.11、3.12 或 3.13。先不要用 Python 3.14，因為目前這個 setup 下 PyTorch 沒有對應 wheel。
-
-先確認 `cmd.exe` 會使用哪個 Python：
+所有 Python 指令都在專案本地的 `.venv` 內執行。請使用 Windows Command Prompt（`cmd.exe`）
+搭配 Windows CPython **3.11、3.12 或 3.13**——不要用 3.14，因為在這個環境下沒有對應的
+PyTorch wheel。
 
 ```cmd
 where python
 python --version
-python -c "import sys; raise SystemExit(0 if (3, 11) <= sys.version_info[:2] < (3, 14) else '本專案請使用 Python 3.11、3.12 或 3.13')"
-```
-
-全新設定：
-
-```cmd
-python -m venv .venv
-.venv\Scripts\activate.bat
-
-python -m pip install --upgrade pip
-python -c "import sys; print(sys.executable); print(sys.version)"
-python -m pip install -e . -r apps\api\requirements.txt
-```
-
-如果 `.venv` 是用錯的 Python 版本建立的，請重建：
-
-```cmd
-if defined VIRTUAL_ENV call deactivate
-if exist .venv rmdir /s /q .venv
-
-where python
-python --version
-python -c "import sys; raise SystemExit(0 if (3, 11) <= sys.version_info[:2] < (3, 14) else '本專案請使用 Python 3.11、3.12 或 3.13')"
 
 python -m venv .venv
 .venv\Scripts\activate.bat
 
 python -m pip install --upgrade pip
-python -c "import sys; print(sys.executable); print(sys.version)"
 python -m pip install -e . -r apps\api\requirements.txt
 ```
 
-啟用後，`python` 和 `pip` 都應該指向 `.venv` 環境。
+完整說明（包含如何重建以錯誤 Python 版本建立的 venv）在
+[安裝設定](docs/reference/setup.zh-TW.md)。
 
-## 先驗證學習體驗
+## 執行
 
-啟用 virtual environment 後，先跑 smoke test。它會載入一個完全未訓練的 tiny GPT 模型，並用同一個 prompt 產生文字接續。
-
-```cmd
-python scripts/smoke_chat.py --message "Every effort moves you" --max-new-tokens 24
-```
-
-你應該觀察到：
-
-1. 輸出不像真正回答，因為模型權重是隨機的。
-2. prompt 會被轉成 token，再由模型一個 token 一個 token 接續產生。
-3. 這個結果就是後續訓練前的 baseline。
-
-試著改變生成參數：
-
-```cmd
-python scripts/smoke_chat.py --message "Every effort moves you" --max-new-tokens 12
-python scripts/smoke_chat.py --message "Every effort moves you" --max-new-tokens 40 --temperature 1.0 --top-k 20
-```
-
-觀察重點：
-
-- `max-new-tokens` 控制生成長度。
-- `temperature=0` 會固定選最高分 token。
-- `temperature>0` 會從機率分布抽樣。
-- 未訓練模型即使會產生 token，也還沒有學會語言規律。
-
-## 啟動 API
+啟動 API：
 
 ```cmd
 python -m uvicorn apps.api.main:app --reload --port 8000
 ```
 
-## 驗證同步 Chat API
-
-以下範例在 Windows Command Prompt 使用 `curl`。
-
-```cmd
-curl -s http://127.0.0.1:8000/health
-curl -s http://127.0.0.1:8000/models
-
-curl -s -X POST http://127.0.0.1:8000/chat ^
-  -H "Content-Type: application/json" ^
-  -d "{\"message\":\"Every effort moves you\",\"max_new_tokens\":24}"
-```
-
-## 驗證非同步 Chat Job
-
-```cmd
-for /f %i in ('curl -s -X POST http://127.0.0.1:8000/chat/jobs -H "Content-Type: application/json" -d "{\"message\":\"Every effort moves you\",\"max_new_tokens\":24}" ^| python -c "import sys,json; print(json.load(sys.stdin)['job_id'])"') do set JOB_ID=%i
-
-curl -s "http://127.0.0.1:8000/chat/jobs/%JOB_ID%"
-```
-
-## 訓練 Tiny Model
-
-執行命令列訓練 smoke test：
-
-```cmd
-python scripts\smoke_train.py --max-steps 80 --eval-every 10
-```
-
-或建立 API 訓練 job：
-
-```cmd
-for /f %i in ('curl -s -X POST http://127.0.0.1:8000/training/jobs -H "Content-Type: application/json" -d "{\"dataset_id\":\"every-effort\",\"base_model_id\":\"random-tiny-byte\",\"output_model_id\":\"trained-tiny-byte\",\"max_steps\":80,\"eval_every\":10,\"load_when_complete\":true}" ^| python -c "import sys,json; print(json.load(sys.stdin)['job_id'])"') do set TRAINING_JOB_ID=%i
-
-curl -s "http://127.0.0.1:8000/training/jobs/%TRAINING_JOB_ID%"
-```
-
-job 成功後，可以用同一個 `/chat` prompt 比較 `random-tiny-byte` 和 `trained-tiny-byte`。
-
-## 啟動 Web 學習控制台
-
-保持 API 執行，然後開第二個 Windows Command Prompt：
+在第二個 Command Prompt 啟動 web 控制台：
 
 ```cmd
 cd apps\web
@@ -150,53 +58,38 @@ npm install
 npm run dev
 ```
 
-開啟 `http://127.0.0.1:3000`，就可以用控制台聊天、訓練、載入 checkpoint、比較模型輸出。
+然後開啟 `http://127.0.0.1:3000`。
 
-## 第一階段學習結論
+## 確認可以運作
 
-這一版要先確認三件事：
+這個指令不需要任何伺服器就能端到端跑完模型：
 
-1. 專案中自己寫的 GPT 架構可以被 API 呼叫。
-2. 未訓練模型可以產生 token，但輸出還沒有語言能力。
-3. API 已具備同步與非同步入口，下一步可以加入 training job，讓使用者比較訓練前後差異。
+```cmd
+python scripts\smoke_chat.py --message "Every effort moves you" --max-new-tokens 24
+```
 
-下一個建議里程碑是 `training/jobs`：用最短可用文字資料訓練 tiny model，儲存成 checkpoint，再回到 `/chat` 比較生成結果。
+輸出看起來像逸出位元組是**正確的**——模型還沒訓練過。
+[Stage 01](docs/stages/01-tokens.zh-TW.md) 會說明原因，課程也從那裡往下走。
 
-## 更多文件
+## 專案結構
 
-- [Learning experience checklist](docs/learning-experience.md)
-- [`smoke_chat.py` explained](docs/smoke-chat.md)
-- [Minimal training loop](docs/training-loop.md)
-- [`smoke_train.py` explained](docs/smoke-train.md)
-- [Model Foundations](docs/model-foundations.md)
-- [Minimal Web UI learning console](docs/web-console.md)
-- [Dataset ladder and training experiments](docs/dataset-ladder-experiments.md)
-- [GPT-2 Pretrained and Instruction Prompts](docs/gpt2-pretrained.md)
-- [LoRA / Parameter-Efficient Fine-Tuning](docs/lora-peft.md)
-- [Minimal GPU Chat Model](docs/minimal-chat-model.md)
-- [Training Data Management and Dataset Builder](docs/dataset-builder.md)
-- [Model Versions and Experiment Comparison](docs/model-version-experiment-comparison.md)
-- [Streaming Chat and Job Cancellation](docs/streaming-chat-cancel.md)
-- [Inference Modes and Prompt Template Playground](docs/inference-prompt-playground.md)
-- [External Model Integration](docs/external-model-integration.md)
-- [Deployment and Resource Limits](docs/deployment-resource-limits.md)
-- [Multi-Turn Conversation Memory](docs/conversation-memory.md)
-- [GPU Runtime Setup for PyTorch](docs/gpu-runtime.md)
-- [`smoke_train.py` 繁體中文說明](docs/smoke-train.zh-TW.md)
-- [繁體中文學習驗證清單](docs/learning-experience.zh-TW.md)
-- [`smoke_chat.py` 繁體中文說明](docs/smoke-chat.zh-TW.md)
-- [最小訓練閉環](docs/training-loop.zh-TW.md)
-- [模型基礎原理](docs/model-foundations.zh-TW.md)
-- [最小 Web UI 學習控制台](docs/web-console.zh-TW.md)
-- [資料規模階梯與訓練實驗記錄](docs/dataset-ladder-experiments.zh-TW.md)
-- [GPT-2 Pretrained 與 Instruction Prompt](docs/gpt2-pretrained.zh-TW.md)
-- [LoRA / Parameter-Efficient Fine-Tuning](docs/lora-peft.zh-TW.md)
-- [最小 GPU Chat Model](docs/minimal-chat-model.zh-TW.md)
-- [訓練資料管理與 Dataset Builder](docs/dataset-builder.zh-TW.md)
-- [模型版本與實驗比較強化](docs/model-version-experiment-comparison.zh-TW.md)
-- [Streaming Chat 與取消任務](docs/streaming-chat-cancel.zh-TW.md)
-- [推論模式與 Prompt Template Playground](docs/inference-prompt-playground.zh-TW.md)
-- [外部模型整合](docs/external-model-integration.zh-TW.md)
-- [部署與資源限制](docs/deployment-resource-limits.zh-TW.md)
-- [多輪對話與會話記憶](docs/conversation-memory.zh-TW.md)
-- [PyTorch GPU Runtime 設定](docs/gpu-runtime.zh-TW.md)
+| 路徑 | 內容 |
+| --- | --- |
+| `packages/llm_core` | 模型本身：tokenizer、GPT 架構、生成、訓練、checkpoint、LoRA |
+| `apps/api` | FastAPI 後端——端點、任務、service |
+| `apps/web` | Next.js 學習控制台 |
+| `scripts` | 不需要伺服器的生成與訓練 smoke test |
+| `data` | 資料集，從 4 行的小檔案到散文與 instruction 資料 |
+| `models` | Checkpoint、下載的 GPT-2 權重、實驗紀錄（全部被 git 忽略） |
+| `docs` | 課程、選修支線與參考資料 |
+
+[架構](docs/reference/architecture.zh-TW.md) 說明這三層如何組合在一起。
+
+## 文件
+
+- [課程索引](docs/README.zh-TW.md) — 有序路徑，從這裡開始
+- [安裝設定](docs/reference/setup.zh-TW.md) · [GPU runtime](docs/reference/gpu-runtime.zh-TW.md) ·
+  [API](docs/reference/api.zh-TW.md) · [架構](docs/reference/architecture.zh-TW.md) ·
+  [名詞表](docs/reference/glossary.zh-TW.md) · [疑難排解](docs/reference/troubleshooting.zh-TW.md)
+- [外部供應商支線](docs/tracks/external-models.zh-TW.md) — 選修
+- [架構重整規劃](docs/restructure-plan.zh-TW.md) — 為什麼專案是這樣組織的
