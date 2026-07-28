@@ -8,7 +8,7 @@
 
 ## 本專案實作內容
 
-LLM ABC 在 `packages/llm_core/llm_core/lora.py` 實作最小 LoRA。
+Chatoken 在 `packages/llm_core/llm_core/lora.py` 實作最小 LoRA。
 
 訓練流程：
 

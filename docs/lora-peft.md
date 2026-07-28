@@ -8,7 +8,7 @@ The goal is to show that the model can adapt by training a small number of adapt
 
 ## What This Project Implements
 
-LLM ABC uses a minimal local LoRA implementation in `packages/llm_core/llm_core/lora.py`.
+Chatoken uses a minimal local LoRA implementation in `packages/llm_core/llm_core/lora.py`.
 
 Training flow:
 

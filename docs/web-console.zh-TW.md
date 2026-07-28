@@ -2,7 +2,7 @@
 
 [English](web-console.md) | [繁體中文](web-console.zh-TW.md)
 
-這份文件說明 LLM ABC 的 Web UI learning console。
+這份文件說明 Chatoken 的 Web UI learning console。
 
 這個 console 把小型 Next.js app 接到 FastAPI backend，並把三條學習路徑分清楚：
 

@@ -2,7 +2,7 @@
 
 [English](training-loop.md) | [繁體中文](training-loop.zh-TW.md)
 
-This document explains the second learning loop in LLM ABC:
+This document explains the second learning loop in Chatoken:
 
 ```text
 random model -> tiny training data -> train -> save checkpoint -> load checkpoint -> chat again
@@ -90,7 +90,7 @@ The loading flow is:
 create GPTModel from checkpoint config -> load full state_dict -> use it as trained-tiny-byte
 ```
 
-This is different from LoRA adapters, delta weights, or patch checkpoints. Those formats store only differences relative to a base model. LLM ABC currently uses full checkpoints because they are easier to inspect and teach.
+This is different from LoRA adapters, delta weights, or patch checkpoints. Those formats store only differences relative to a base model. Chatoken currently uses full checkpoints because they are easier to inspect and teach.
 
 One important detail: the checkpoint does not contain the Python source code for `GPTModel`. The project still needs compatible model code and config when loading the checkpoint.
 

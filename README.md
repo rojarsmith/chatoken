@@ -1,8 +1,8 @@
-# LLM ABC
+# Chatoken
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-LLM ABC is an educational project for building a minimal ChatGPT-like system from scratch. It starts with a tiny PyTorch GPT model, exposes it through an AI API backend, and prepares the path for a Next.js Web UI.
+Chatoken is an educational project for building a minimal ChatGPT-like system from scratch. It starts with a tiny PyTorch GPT model, exposes it through an AI API backend, and prepares the path for a Next.js Web UI.
 
 The goal is not to build a powerful assistant immediately. The goal is to help software developers experience the full learning path:
 

@@ -35,9 +35,9 @@ curl -s http://127.0.0.1:8000/external/models
 Set environment variables in Windows Command Prompt before starting the API:
 
 ```cmd
-set LLM_ABC_EXTERNAL_OPENAI_API_KEY=your_api_key
-set LLM_ABC_EXTERNAL_OPENAI_MODEL=your_model_name
-set LLM_ABC_EXTERNAL_OPENAI_BASE_URL=https://api.openai.com/v1
+set CHATOKEN_EXTERNAL_OPENAI_API_KEY=your_api_key
+set CHATOKEN_EXTERNAL_OPENAI_MODEL=your_model_name
+set CHATOKEN_EXTERNAL_OPENAI_BASE_URL=https://api.openai.com/v1
 
 .venv\Scripts\activate.bat
 python -m uvicorn apps.api.main:app --reload --port 8000
@@ -65,9 +65,9 @@ The backend sends:
 Start Ollama separately, make sure the model exists locally, then start the API with:
 
 ```cmd
-set LLM_ABC_EXTERNAL_OLLAMA_ENABLED=true
-set LLM_ABC_EXTERNAL_OLLAMA_MODEL=your_local_ollama_model
-set LLM_ABC_EXTERNAL_OLLAMA_BASE_URL=http://127.0.0.1:11434
+set CHATOKEN_EXTERNAL_OLLAMA_ENABLED=true
+set CHATOKEN_EXTERNAL_OLLAMA_MODEL=your_local_ollama_model
+set CHATOKEN_EXTERNAL_OLLAMA_BASE_URL=http://127.0.0.1:11434
 
 .venv\Scripts\activate.bat
 python -m uvicorn apps.api.main:app --reload --port 8000

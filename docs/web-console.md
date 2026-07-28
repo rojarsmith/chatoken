@@ -2,7 +2,7 @@
 
 [English](web-console.md) | [繁體中文](web-console.zh-TW.md)
 
-This document explains the Web UI learning console for LLM ABC.
+This document explains the Web UI learning console for Chatoken.
 
 The console connects a small Next.js app to the FastAPI backend and keeps three learning paths separate:
 

@@ -2,7 +2,7 @@
 
 [English](gpu-runtime.md) | [繁體中文](gpu-runtime.zh-TW.md)
 
-LLM ABC 不需要在程式碼裡切換 GPU。只要 `.venv` 裡的 PyTorch 看得到 CUDA device，後端就會自動使用 CUDA。
+Chatoken 不需要在程式碼裡切換 GPU。只要 `.venv` 裡的 PyTorch 看得到 CUDA device，後端就會自動使用 CUDA。
 
 這主要是給 GPT-2 instruction SFT 使用。tiny from-scratch 學習階段仍然可以用 CPU。
 
@@ -26,7 +26,7 @@ nvidia-smi
 在專案根目錄執行：
 
 ```cmd
-cd /d C:\my\build\git-public\llm-abc
+cd /d C:\my\build\github\chatoken
 .venv\Scripts\activate.bat
 
 python -c "import sys, torch; print(sys.executable); print(torch.__version__); print('cuda_available', torch.cuda.is_available()); print('cuda_version', torch.version.cuda); print('device_count', torch.cuda.device_count()); print('device_name', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'none')"
@@ -107,7 +107,7 @@ Web UI 頂部也應該顯示 GPU 名稱，而不是 `CPU only`。
 
 請依序檢查：
 
-1. `where python` 和 `python -c "import sys; print(sys.executable)"` 必須指向 `C:\my\build\git-public\llm-abc\.venv` 裡面。
+1. `where python` 和 `python -c "import sys; print(sys.executable)"` 必須指向 `C:\my\build\github\chatoken\.venv` 裡面。
 2. 安裝 CUDA 版 PyTorch 後，必須重啟 API。
 3. 執行 `nvidia-smi`；如果失敗，先修 NVIDIA driver。
 4. 回到官方 PyTorch selector，重新產生並執行安裝指令。

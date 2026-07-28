@@ -12,7 +12,7 @@ Run it only after the project `.venv` is activated.
 
 The examples below use Windows Command Prompt (`cmd.exe`) and the `python` command from `.venv`.
 
-The script demonstrates the second learning checkpoint in LLM ABC:
+The script demonstrates the second learning checkpoint in Chatoken:
 
 ```text
 random model -> generate before sample -> train on tiny text -> generate after sample -> save full checkpoint

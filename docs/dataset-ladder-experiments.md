@@ -2,7 +2,7 @@
 
 [English](dataset-ladder-experiments.md) | [繁體中文](dataset-ladder-experiments.zh-TW.md)
 
-This document explains the dataset and experiment loop in LLM ABC:
+This document explains the dataset and experiment loop in Chatoken:
 
 ```text
 choose dataset -> choose base model -> train -> save checkpoint -> record experiment -> compare

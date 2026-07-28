@@ -33,7 +33,7 @@ from apps.api.services.training_service import TrainingRequestData, TrainingServ
 
 
 app = FastAPI(
-    title="LLM ABC API",
+    title="Chatoken API",
     version="0.1.0",
     description="A minimal educational API for a tiny ChatGPT-like model.",
 )

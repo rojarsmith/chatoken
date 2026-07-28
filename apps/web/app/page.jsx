@@ -700,14 +700,14 @@ export default function Home() {
   );
 
   useEffect(() => {
-    const stored = window.localStorage.getItem("llm-abc-api-base-url");
+    const stored = window.localStorage.getItem("chatoken-api-base-url");
     if (stored) {
       setApiBaseUrl(stored);
     }
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem("llm-abc-api-base-url", apiBaseUrl);
+    window.localStorage.setItem("chatoken-api-base-url", apiBaseUrl);
   }, [apiBaseUrl]);
 
   useEffect(() => {
@@ -1690,7 +1690,7 @@ export default function Home() {
         <div className="brand">
           <BrainCircuit aria-hidden="true" />
           <div>
-            <h1>LLM ABC Console</h1>
+            <h1>Chatoken Console</h1>
             <p>Minimal Web UI learning console</p>
           </div>
         </div>

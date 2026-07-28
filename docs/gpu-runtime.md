@@ -2,7 +2,7 @@
 
 [English](gpu-runtime.md) | [繁體中文](gpu-runtime.zh-TW.md)
 
-LLM ABC does not need a code switch to use GPU. The backend chooses CUDA automatically when the PyTorch build in `.venv` can see a CUDA device.
+Chatoken does not need a code switch to use GPU. The backend chooses CUDA automatically when the PyTorch build in `.venv` can see a CUDA device.
 
 Use this for GPT-2 instruction SFT. The tiny from-scratch lessons are still fine on CPU.
 
@@ -26,7 +26,7 @@ If this command is not found or cannot see a GPU, update or install the NVIDIA d
 From the project root:
 
 ```cmd
-cd /d C:\my\build\git-public\llm-abc
+cd /d C:\my\build\github\chatoken
 .venv\Scripts\activate.bat
 
 python -c "import sys, torch; print(sys.executable); print(torch.__version__); print('cuda_available', torch.cuda.is_available()); print('cuda_version', torch.version.cuda); print('device_count', torch.cuda.device_count()); print('device_name', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'none')"
@@ -109,7 +109,7 @@ The Web UI top bar should show the GPU name instead of `CPU only`.
 
 Check these in order:
 
-1. `where python` and `python -c "import sys; print(sys.executable)"` must point inside `C:\my\build\git-public\llm-abc\.venv`.
+1. `where python` and `python -c "import sys; print(sys.executable)"` must point inside `C:\my\build\github\chatoken\.venv`.
 2. Restart the API after installing the CUDA PyTorch build.
 3. Run `nvidia-smi`; if it fails, fix the NVIDIA driver first.
 4. Re-run the PyTorch install command from the official selector.

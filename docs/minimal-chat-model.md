@@ -67,7 +67,7 @@ Poll the training job until `status` becomes `succeeded`.
 Create a session:
 
 ```cmd
-for /f %i in ('curl -s -X POST http://127.0.0.1:8000/conversations -H "Content-Type: application/json" -d "{\"title\":\"Chat LoRA smoke\",\"model_id\":\"gpt2-chat-lora\",\"system_prompt\":\"You are LLM ABC, a concise assistant for a learning console.\",\"max_history_messages\":8,\"context_token_budget\":512,\"context_format\":\"chat-transcript\",\"max_new_tokens\":80,\"temperature\":0,\"inference_mode\":\"greedy\"}" ^| python -c "import sys,json; print(json.load(sys.stdin)['conversation_id'])"') do set CONVERSATION_ID=%i
+for /f %i in ('curl -s -X POST http://127.0.0.1:8000/conversations -H "Content-Type: application/json" -d "{\"title\":\"Chat LoRA smoke\",\"model_id\":\"gpt2-chat-lora\",\"system_prompt\":\"You are Chatoken, a concise assistant for a learning console.\",\"max_history_messages\":8,\"context_token_budget\":512,\"context_format\":\"chat-transcript\",\"max_new_tokens\":80,\"temperature\":0,\"inference_mode\":\"greedy\"}" ^| python -c "import sys,json; print(json.load(sys.stdin)['conversation_id'])"') do set CONVERSATION_ID=%i
 ```
 
 Send a memory turn:
@@ -75,7 +75,7 @@ Send a memory turn:
 ```cmd
 curl -s -X POST http://127.0.0.1:8000/conversations/%CONVERSATION_ID%/messages ^
   -H "Content-Type: application/json" ^
-  -d "{\"message\":\"My name is Rojar. Please remember it.\",\"model_id\":\"gpt2-chat-lora\",\"system_prompt\":\"You are LLM ABC, a concise assistant for a learning console.\",\"max_history_messages\":8,\"context_token_budget\":512,\"context_format\":\"chat-transcript\",\"max_new_tokens\":80,\"temperature\":0,\"inference_mode\":\"greedy\"}"
+  -d "{\"message\":\"My name is Rojar. Please remember it.\",\"model_id\":\"gpt2-chat-lora\",\"system_prompt\":\"You are Chatoken, a concise assistant for a learning console.\",\"max_history_messages\":8,\"context_token_budget\":512,\"context_format\":\"chat-transcript\",\"max_new_tokens\":80,\"temperature\":0,\"inference_mode\":\"greedy\"}"
 ```
 
 Ask from context:
@@ -83,7 +83,7 @@ Ask from context:
 ```cmd
 curl -s -X POST http://127.0.0.1:8000/conversations/%CONVERSATION_ID%/messages ^
   -H "Content-Type: application/json" ^
-  -d "{\"message\":\"What is my name?\",\"model_id\":\"gpt2-chat-lora\",\"system_prompt\":\"You are LLM ABC, a concise assistant for a learning console.\",\"max_history_messages\":8,\"context_token_budget\":512,\"context_format\":\"chat-transcript\",\"max_new_tokens\":80,\"temperature\":0,\"inference_mode\":\"greedy\"}"
+  -d "{\"message\":\"What is my name?\",\"model_id\":\"gpt2-chat-lora\",\"system_prompt\":\"You are Chatoken, a concise assistant for a learning console.\",\"max_history_messages\":8,\"context_token_budget\":512,\"context_format\":\"chat-transcript\",\"max_new_tokens\":80,\"temperature\":0,\"inference_mode\":\"greedy\"}"
 ```
 
 ## Web UI Flow

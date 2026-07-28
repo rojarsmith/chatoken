@@ -2,7 +2,7 @@
 
 [English](dataset-ladder-experiments.md) | [繁體中文](dataset-ladder-experiments.zh-TW.md)
 
-這份文件說明 LLM ABC 的 dataset 與 experiment loop：
+這份文件說明 Chatoken 的 dataset 與 experiment loop：
 
 ```text
 選 dataset -> 選 base model -> train -> save checkpoint -> record experiment -> compare

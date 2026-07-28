@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "LLM ABC Console",
-  description: "Minimal Web UI learning console for the LLM ABC API"
+  title: "Chatoken Console",
+  description: "Minimal Web UI learning console for the Chatoken API"
 };
 
 export default function RootLayout({ children }) {

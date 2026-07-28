@@ -102,10 +102,10 @@ class ExternalModelService:
         }
 
 def _openai_compatible_model() -> dict:
-    api_key = os.environ.get("LLM_ABC_EXTERNAL_OPENAI_API_KEY", "").strip()
-    model_name = os.environ.get("LLM_ABC_EXTERNAL_OPENAI_MODEL", "").strip()
+    api_key = os.environ.get("CHATOKEN_EXTERNAL_OPENAI_API_KEY", "").strip()
+    model_name = os.environ.get("CHATOKEN_EXTERNAL_OPENAI_MODEL", "").strip()
     base_url = os.environ.get(
-        "LLM_ABC_EXTERNAL_OPENAI_BASE_URL",
+        "CHATOKEN_EXTERNAL_OPENAI_BASE_URL",
         "https://api.openai.com/v1",
     ).strip()
     if api_key and model_name:
@@ -130,14 +130,14 @@ def _openai_compatible_model() -> dict:
 
 
 def _ollama_model() -> dict:
-    enabled = os.environ.get("LLM_ABC_EXTERNAL_OLLAMA_ENABLED", "").lower() in {
+    enabled = os.environ.get("CHATOKEN_EXTERNAL_OLLAMA_ENABLED", "").lower() in {
         "1",
         "true",
         "yes",
     }
-    model_name = os.environ.get("LLM_ABC_EXTERNAL_OLLAMA_MODEL", "llama3.2").strip()
+    model_name = os.environ.get("CHATOKEN_EXTERNAL_OLLAMA_MODEL", "llama3.2").strip()
     base_url = os.environ.get(
-        "LLM_ABC_EXTERNAL_OLLAMA_BASE_URL",
+        "CHATOKEN_EXTERNAL_OLLAMA_BASE_URL",
         "http://127.0.0.1:11434",
     ).strip()
 
@@ -168,13 +168,13 @@ def _ensure_model_ready(model: dict) -> None:
     if model["provider"] == "openai-compatible":
         raise ValueError(
             "OpenAI-compatible model is not configured. Set "
-            "LLM_ABC_EXTERNAL_OPENAI_API_KEY and LLM_ABC_EXTERNAL_OPENAI_MODEL "
+            "CHATOKEN_EXTERNAL_OPENAI_API_KEY and CHATOKEN_EXTERNAL_OPENAI_MODEL "
             "before starting the API server."
         )
     if model["provider"] == "ollama":
         raise ValueError(
-            "Ollama model is disabled. Set LLM_ABC_EXTERNAL_OLLAMA_ENABLED=true "
-            "and LLM_ABC_EXTERNAL_OLLAMA_MODEL before starting the API server."
+            "Ollama model is disabled. Set CHATOKEN_EXTERNAL_OLLAMA_ENABLED=true "
+            "and CHATOKEN_EXTERNAL_OLLAMA_MODEL before starting the API server."
         )
     raise ValueError(f"External model is not available: {model['model_id']}")
 
@@ -213,7 +213,7 @@ def _call_openai_compatible(
     request: ExternalChatRequestData,
     messages: list[dict],
 ) -> tuple[str, dict]:
-    api_key = os.environ.get("LLM_ABC_EXTERNAL_OPENAI_API_KEY", "").strip()
+    api_key = os.environ.get("CHATOKEN_EXTERNAL_OPENAI_API_KEY", "").strip()
     payload = {
         "model": model["provider_model_name"],
         "messages": messages,
@@ -272,7 +272,7 @@ def _post_json(
     payload: dict,
     headers: dict | None = None,
 ) -> dict:
-    timeout = float(os.environ.get("LLM_ABC_EXTERNAL_TIMEOUT_SECONDS", "60"))
+    timeout = float(os.environ.get("CHATOKEN_EXTERNAL_TIMEOUT_SECONDS", "60"))
     encoded = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
         url,

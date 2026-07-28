@@ -2,7 +2,7 @@
 
 [English](training-loop.md) | [繁體中文](training-loop.zh-TW.md)
 
-這份文件說明 LLM ABC 的第二個學習閉環：
+這份文件說明 Chatoken 的第二個學習閉環：
 
 ```text
 隨機模型 -> tiny 訓練資料 -> 訓練 -> 儲存 checkpoint -> 載入 checkpoint -> 再聊天比較
@@ -90,7 +90,7 @@ curl -s http://127.0.0.1:8000/checkpoints
 根據 checkpoint config 建立 GPTModel -> 載入完整 state_dict -> 作為 trained-tiny-byte 使用
 ```
 
-這和 LoRA adapter、delta weights、patch checkpoint 不同。那些格式通常只儲存相對於 base model 的差異。LLM ABC 目前使用 full checkpoint，因為它比較容易檢查，也比較適合教學。
+這和 LoRA adapter、delta weights、patch checkpoint 不同。那些格式通常只儲存相對於 base model 的差異。Chatoken 目前使用 full checkpoint，因為它比較容易檢查，也比較適合教學。
 
 有一點要注意：checkpoint 不包含 `GPTModel` 的 Python 原始碼。載入 checkpoint 時，專案仍然需要有相容的模型程式碼與 config。
 

@@ -12,7 +12,7 @@ python scripts\smoke_train.py --max-steps 80 --eval-every 10
 
 以下範例使用 Windows Command Prompt (`cmd.exe`) 與 `.venv` 內的 `python` 指令。
 
-這支腳本展示 LLM ABC 的第二個學習檢查點：
+這支腳本展示 Chatoken 的第二個學習檢查點：
 
 ```text
 隨機模型 -> 產生訓練前樣本 -> 用 tiny text 訓練 -> 產生訓練後樣本 -> 儲存 full checkpoint

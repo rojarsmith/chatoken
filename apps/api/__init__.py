@@ -1,1 +1,1 @@
-"""FastAPI backend for LLM ABC."""
+"""FastAPI backend for Chatoken."""

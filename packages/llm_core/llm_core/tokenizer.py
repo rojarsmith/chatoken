@@ -90,7 +90,7 @@ def _gpt2_assets_dir(assets_dir: Path | str | None = None) -> Path | None:
     candidates: list[Path] = []
     if assets_dir is not None:
         candidates.append(Path(assets_dir))
-    env_dir = os.environ.get("LLM_ABC_GPT2_TOKENIZER_DIR")
+    env_dir = os.environ.get("CHATOKEN_GPT2_TOKENIZER_DIR")
     if env_dir:
         candidates.append(Path(env_dir))
 
