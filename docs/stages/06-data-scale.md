@@ -80,8 +80,7 @@ curl -s -X POST http://127.0.0.1:8000/training/jobs ^
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then these runs live in the
-> legacy console tabs **From Scratch** and **Raw Text**.
+Open `http://127.0.0.1:3000` and pick **Stage 06 · Data scale** on the ladder.
 
 ## What to observe
 

@@ -97,7 +97,7 @@ export default function StageView({ stage }) {
   );
 }
 
-function ConceptBlock({ concept }) {
+export function ConceptBlock({ concept }) {
   if (!concept) return null;
   return (
     <section className="lx-card">
@@ -162,22 +162,16 @@ function ExitCheckItem({ stageId, label }) {
 function PendingStage({ stage }) {
   return (
     <section className="lx-card">
-      <span className="lx-block-label">Not migrated yet</span>
-      <h2>This stage still runs in the legacy console</h2>
+      <span className="lx-block-label">No panel</span>
+      <h2>This stage has no interactive panel</h2>
       <p>
-        The stage document is complete and can be followed today using its command-line and API
-        steps. The interactive panel arrives in a later phase of the restructure.
+        Every stage on the ladder should be wired into{" "}
+        <code>content/stages/index.js</code>. This one is not, which is a bug —{" "}
+        <code>scripts/check_curriculum.py</code> is meant to catch it.
       </p>
       <p>
-        Read <code>{stage.doc}</code>
-        {stage.legacyTab ? (
-          <>
-            , then use the <strong>{stage.legacyTab}</strong> tab in the{" "}
-            <Link href="/legacy">legacy console</Link>.
-          </>
-        ) : (
-          "."
-        )}
+        The written stage is complete and can be followed with its command-line and API steps:{" "}
+        <code>{stage.doc}</code>
       </p>
     </section>
   );

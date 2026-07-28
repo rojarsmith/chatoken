@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import ConsoleShell from "../components/layout/ConsoleShell";
 import { useConsole } from "../components/layout/ConsoleShell";
-import { PARTS, TOTAL_STAGES, stagesOfPart } from "../content/curriculum";
+import { PARTS, TOTAL_STAGES, TRACKS, stagesOfPart } from "../content/curriculum";
 
 export default function CurriculumMapPage() {
   return (
@@ -52,12 +52,28 @@ function CurriculumMap() {
         ))}
       </div>
 
+      <section className="lx-map-part" style={{ marginTop: "6px" }}>
+        <h2>Optional track</h2>
+        <p>not on the ladder — nothing later depends on it</p>
+        <div className="lx-map-grid">
+          {TRACKS.map((track) => (
+            <Link key={track.id} href={`/track/${track.id}`} className="lx-map-card">
+              <div className="lx-map-card-top">
+                <b>TRACK</b>
+              </div>
+              <h3>{track.title}</h3>
+              <p>{track.focus}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       <section className="lx-card" style={{ marginTop: "18px" }}>
         <span className="lx-block-label">Reading the ladder</span>
         <p>
-          Stages marked <span className="lx-soon">doc</span> have a complete written stage that you
-          can follow today with its command-line and API steps; their interactive panel arrives in
-          a later phase, and their page tells you which legacy console tab to use meanwhile.
+          Every stage has an interactive panel here, and a written stage with command-line and API
+          steps that work without the console at all. The dot on each card tracks your progress —
+          stages are ordered but never locked.
         </p>
         <p className="lx-deepdive">
           The full course text lives in <code>docs/README.md</code>, in English and 繁體中文.

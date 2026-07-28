@@ -83,7 +83,7 @@ curl -s http://127.0.0.1:8000/checkpoints
 
 ### 在控制台
 
-> 階段階梯會在重整的 Phase 2 出現。在那之前，這位於 legacy 頁籤 **Experiments** 與 **Checkpoints**。
+開啟 `http://127.0.0.1:3000`，在階梯上選 **Stage 14 · Compare runs**。
 
 ## What to observe
 

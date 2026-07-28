@@ -70,7 +70,6 @@
       "doc": "docs/stages/01-tokens.md",
       "docZh": "docs/stages/01-tokens.zh-TW.md",
       "requires": [],
-      "legacyTab": null,
       "implemented": true
     },
     {
@@ -84,7 +83,6 @@
       "requires": [
         "01-tokens"
       ],
-      "legacyTab": "GPT Model",
       "implemented": true
     },
     {
@@ -98,7 +96,6 @@
       "requires": [
         "02-forward-pass"
       ],
-      "legacyTab": "Chat",
       "implemented": true
     },
     {
@@ -112,7 +109,6 @@
       "requires": [
         "03-decoding"
       ],
-      "legacyTab": "From Scratch",
       "implemented": true
     },
     {
@@ -126,7 +122,6 @@
       "requires": [
         "04-training-loop"
       ],
-      "legacyTab": "Training Config",
       "implemented": true
     },
     {
@@ -140,7 +135,6 @@
       "requires": [
         "05-training-knobs"
       ],
-      "legacyTab": "Raw Text",
       "implemented": true
     },
     {
@@ -154,7 +148,6 @@
       "requires": [
         "06-data-scale"
       ],
-      "legacyTab": "Checkpoints",
       "implemented": true
     },
     {
@@ -168,7 +161,6 @@
       "requires": [
         "07-checkpoints"
       ],
-      "legacyTab": "GPT-2",
       "implemented": true
     },
     {
@@ -182,7 +174,6 @@
       "requires": [
         "08-pretrained-gpt2"
       ],
-      "legacyTab": "Prompt Lab",
       "implemented": true
     },
     {
@@ -196,8 +187,7 @@
       "requires": [
         "09-prompt-format"
       ],
-      "legacyTab": "Instruction",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "11-lora",
@@ -210,8 +200,7 @@
       "requires": [
         "10-instruction-sft"
       ],
-      "legacyTab": "LoRA",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "12-chat-sft",
@@ -224,8 +213,7 @@
       "requires": [
         "11-lora"
       ],
-      "legacyTab": "Chat SFT",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "13-your-own-dataset",
@@ -238,8 +226,7 @@
       "requires": [
         "12-chat-sft"
       ],
-      "legacyTab": "Dataset Builder",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "14-compare-runs",
@@ -252,8 +239,7 @@
       "requires": [
         "13-your-own-dataset"
       ],
-      "legacyTab": "Experiments",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "15-conversation-memory",
@@ -266,8 +252,7 @@
       "requires": [
         "14-compare-runs"
       ],
-      "legacyTab": "Conversation",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "16-streaming-cancel",
@@ -280,8 +265,7 @@
       "requires": [
         "15-conversation-memory"
       ],
-      "legacyTab": "Chat",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "17-deploy-limits",
@@ -294,8 +278,7 @@
       "requires": [
         "16-streaming-cancel"
       ],
-      "legacyTab": "Deploy",
-      "implemented": false
+      "implemented": true
     }
   ],
   "tracks": [
@@ -306,8 +289,7 @@
       "doc": "docs/tracks/external-models.md",
       "docZh": "docs/tracks/external-models.zh-TW.md",
       "availableAfter": "09-prompt-format",
-      "legacyTab": "External",
-      "implemented": false
+      "implemented": true
     }
   ],
   "reference": [

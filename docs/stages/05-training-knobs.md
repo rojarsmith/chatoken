@@ -84,8 +84,7 @@ python scripts\smoke_train.py --max-steps 80 --eval-every 10 --batch-size 8
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then the same controls live in
-> the legacy console tab **Training Config**.
+Open `http://127.0.0.1:3000` and pick **Stage 05 · Training knobs** on the ladder.
 
 ## What to observe
 

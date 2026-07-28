@@ -89,11 +89,11 @@ def main() -> int:
         if not stage["implemented"] and stage["id"] in wired:
             problems.append(f"{stage['id']}: wired into the console but marked not implemented")
 
-    # 7. Stages that are not migrated yet must name a legacy tab, or explain why not.
+    # 7. The legacy console is gone, so every stage must be wired into the ladder.
     for stage in stages:
-        if not stage["implemented"] and not stage["legacyTab"]:
+        if not stage["implemented"]:
             problems.append(
-                f"{stage['id']}: not implemented and has no legacyTab, so it is unreachable"
+                f"{stage['id']}: not implemented, and there is no legacy console to fall back to"
             )
 
     if problems:

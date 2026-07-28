@@ -8,11 +8,9 @@ This is the ordered index for the whole project. Start at Stage 01 and go down. 
 teaches **exactly one new idea**, builds on the stage before it, and ends with a checklist you
 can use to decide whether to move on.
 
-> **Console status.** The stage ladder is live at `http://127.0.0.1:3000`. Stages 01–03 have
-> interactive panels; the remaining stages appear on the ladder and link to their document plus
-> the legacy console tab that still holds those controls. The original 16-tab console stays
-> reachable at `/legacy` until every stage is migrated. See the
-> [restructure plan](restructure-plan.md) for the schedule.
+> **Console.** The stage ladder is live at `http://127.0.0.1:3000`. All 17 stages and the
+> optional track have interactive panels. Each stage document also gives command-line and API
+> steps, so the course can be followed without the console at all.
 
 ## Before you start
 

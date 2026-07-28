@@ -80,8 +80,7 @@ python -c "import torch; p = torch.load(r'models/checkpoints/YOUR_FILE.pt', map_
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then this lives in the legacy
-> console tab **Checkpoints**.
+Open `http://127.0.0.1:3000` and pick **Stage 07 · Checkpoints** on the ladder.
 
 ## What to observe
 

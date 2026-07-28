@@ -93,8 +93,7 @@ curl -s -X POST http://127.0.0.1:8000/chat ^
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then the same controls live in
-> the legacy console tab **GPT-2**.
+Open `http://127.0.0.1:3000` and pick **Stage 08 · Pretrained GPT-2** on the ladder.
 
 ## What to observe
 

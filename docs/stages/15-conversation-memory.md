@@ -102,8 +102,7 @@ curl -s -X DELETE http://127.0.0.1:8000/conversations/<CONVERSATION_ID>
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then this lives in the legacy
-> console tab **Conversation**.
+Open `http://127.0.0.1:3000` and pick **Stage 15 · Conversation memory** on the ladder.
 
 ## What to observe
 

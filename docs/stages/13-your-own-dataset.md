@@ -106,8 +106,7 @@ Ask the model an `eval` instruction it was never trained on, and judge the answe
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then this lives in the legacy
-> console tab **Dataset Builder**.
+Open `http://127.0.0.1:3000` and pick **Stage 13 · Your own dataset** on the ladder.
 
 ## What to observe
 

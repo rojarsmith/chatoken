@@ -60,7 +60,53 @@ export const api = {
   pretrainedModels: (baseUrl) => request(baseUrl, "/pretrained/models"),
   createPretrainedJob: (baseUrl, body) => post(baseUrl, "/pretrained/jobs", body),
   pretrainedJob: (baseUrl, jobId) => request(baseUrl, `/pretrained/jobs/${jobId}`),
-  cancelPretrainedJob: (baseUrl, jobId) => post(baseUrl, `/pretrained/jobs/${jobId}/cancel`)
+  cancelPretrainedJob: (baseUrl, jobId) => post(baseUrl, `/pretrained/jobs/${jobId}/cancel`),
+
+  // Stage 13 — dataset builder
+  datasetBuilder: (baseUrl) => request(baseUrl, "/training/dataset-builder"),
+  seedDatasetBuilder: (baseUrl) => post(baseUrl, "/training/dataset-builder/seed"),
+  addBuilderExample: (baseUrl, body) =>
+    post(baseUrl, "/training/dataset-builder/examples", body),
+  updateBuilderExample: (baseUrl, exampleId, body) =>
+    request(baseUrl, `/training/dataset-builder/examples/${exampleId}`, {
+      method: "PUT",
+      body: JSON.stringify(body)
+    }),
+  deleteBuilderExample: (baseUrl, exampleId) =>
+    request(baseUrl, `/training/dataset-builder/examples/${exampleId}`, { method: "DELETE" }),
+
+  // Stage 14 — experiments
+  experiments: (baseUrl) => request(baseUrl, "/training/experiments"),
+  compareExperiments: (baseUrl, leftId, rightId) =>
+    request(
+      baseUrl,
+      `/training/experiments/compare?left_id=${encodeURIComponent(leftId)}&right_id=${encodeURIComponent(rightId)}`
+    ),
+
+  // Stage 15 — conversations
+  conversations: (baseUrl) => request(baseUrl, "/conversations"),
+  createConversation: (baseUrl, body) => post(baseUrl, "/conversations", body),
+  conversation: (baseUrl, id) => request(baseUrl, `/conversations/${id}`),
+  deleteConversation: (baseUrl, id) =>
+    request(baseUrl, `/conversations/${id}`, { method: "DELETE" }),
+  previewConversationContext: (baseUrl, id, body) =>
+    post(baseUrl, `/conversations/${id}/context-preview`, body),
+  sendConversationMessage: (baseUrl, id, body) =>
+    post(baseUrl, `/conversations/${id}/messages`, body),
+
+  // Stage 16 — cancellation
+  cancelChatJob: (baseUrl, jobId) => post(baseUrl, `/chat/jobs/${jobId}/cancel`),
+  createChatJob: (baseUrl, body) => post(baseUrl, "/chat/jobs", body),
+  chatJob: (baseUrl, jobId) => request(baseUrl, `/chat/jobs/${jobId}`),
+
+  // Stage 17 — deployment
+  deploymentProfile: (baseUrl) => request(baseUrl, "/deployment/profile"),
+  deploymentEstimate: (baseUrl, body) => post(baseUrl, "/deployment/estimate", body),
+
+  // Track T1 — external providers
+  externalModels: (baseUrl) => request(baseUrl, "/external/models"),
+  externalPromptPreview: (baseUrl, body) => post(baseUrl, "/external/prompt-preview", body),
+  externalChat: (baseUrl, body) => post(baseUrl, "/external/chat", body)
 };
 
 export const JOB_ENDPOINTS = {

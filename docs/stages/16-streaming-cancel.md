@@ -95,8 +95,7 @@ takes to reach `cancelled`.
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then streaming lives in the
-> legacy console tab **Chat**, and cancel buttons appear on the training and GPT-2 panels.
+Open `http://127.0.0.1:3000` and pick **Stage 16 · Streaming & cancel** on the ladder.
 
 ## What to observe
 

@@ -98,8 +98,7 @@ curl -s -X POST http://127.0.0.1:8000/chat ^
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then this lives in the legacy
-> console tab **External**.
+Open `http://127.0.0.1:3000` and pick **External providers** from the Workbench drawer, or go to `/track/external-models`.
 
 ## What to observe
 

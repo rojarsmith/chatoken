@@ -45,7 +45,7 @@
 | 症狀 | 原因 | 解法 |
 | --- | --- | --- |
 | 畫面一片空白；伺服器記錄顯示 `Cannot find module './833.js'` 或 `./vendor-chunks/next.js` | 在 `npm run dev` 執行中又跑了 `npm run build`——兩者共用 `apps/web/.next`，build 會覆蓋 dev server 的 chunk | 停掉 dev server、`rm -rf apps/web/.next`，再重新啟動。dev server 執行時不要 build。 |
-| 階段頁顯示「Not migrated yet」 | 該階段的面板尚未建置 | 依該階段文件的指令列或 API 步驟操作，並使用它指出的 legacy 頁籤 |
+| 階段頁顯示「No panel」 | 該階段沒有登記在 `content/stages/index.js`——這是 bug | 執行 `python scripts/check_curriculum.py`；該階段文件的指令列步驟仍然可用 |
 | 階梯看不到模型、API 標示 offline | API 沒啟動，或頂端列的 URL 不對 | 在 8000 埠啟動 uvicorn；頂端列的欄位可編輯且會被記住 |
 | 進度標記不見了 | 進度以瀏覽器 origin 為單位存在 `localStorage` | `localhost:3000` 與 `127.0.0.1:3000` 是不同 origin——固定用其中一個 |
 

@@ -86,8 +86,7 @@ curl -s http://127.0.0.1:8000/checkpoints
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then this lives in the legacy
-> console tabs **Experiments** and **Checkpoints**.
+Open `http://127.0.0.1:3000` and pick **Stage 14 · Compare runs** on the ladder.
 
 ## What to observe
 

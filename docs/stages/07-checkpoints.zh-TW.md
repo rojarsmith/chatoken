@@ -77,7 +77,7 @@ python -c "import torch; p = torch.load(r'models/checkpoints/YOUR_FILE.pt', map_
 
 ### 在控制台
 
-> 階段階梯會在重整的 Phase 2 出現。在那之前，這位於 legacy 頁籤 **Checkpoints**。
+開啟 `http://127.0.0.1:3000`，在階梯上選 **Stage 07 · Checkpoints**。
 
 ## What to observe
 

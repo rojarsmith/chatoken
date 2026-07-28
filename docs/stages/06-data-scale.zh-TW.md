@@ -77,7 +77,7 @@ curl -s -X POST http://127.0.0.1:8000/training/jobs ^
 
 ### 在控制台
 
-> 階段階梯會在重整的 Phase 2 出現。在那之前，這些執行位於 legacy 頁籤 **From Scratch** 與 **Raw Text**。
+開啟 `http://127.0.0.1:3000`，在階梯上選 **Stage 06 · Data scale**。
 
 ## What to observe
 

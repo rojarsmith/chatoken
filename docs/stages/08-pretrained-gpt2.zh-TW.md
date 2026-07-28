@@ -88,7 +88,7 @@ curl -s -X POST http://127.0.0.1:8000/chat ^
 
 ### 在控制台
 
-> 階段階梯會在重整的 Phase 2 出現。在那之前，相同的操作位於 legacy 頁籤 **GPT-2**。
+開啟 `http://127.0.0.1:3000`，在階梯上選 **Stage 08 · Pretrained GPT-2**。
 
 ## What to observe
 

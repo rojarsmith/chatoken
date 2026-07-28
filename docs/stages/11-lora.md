@@ -91,8 +91,7 @@ curl -s -X POST http://127.0.0.1:8000/chat -H "Content-Type: application/json" -
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then this lives in the legacy
-> console tab **LoRA**.
+Open `http://127.0.0.1:3000` and pick **Stage 11 · LoRA** on the ladder.
 
 ## What to observe
 

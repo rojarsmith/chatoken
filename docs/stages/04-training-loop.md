@@ -87,8 +87,7 @@ with `"model_id":"trained-tiny-byte"` — and compare.
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then the same controls live in
-> the legacy console tab **From Scratch**.
+Open `http://127.0.0.1:3000` and pick **Stage 04 · Training loop** on the ladder.
 
 ## What to observe
 

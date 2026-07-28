@@ -111,8 +111,7 @@ npm run start -- --port 3000
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then this lives in the legacy
-> console tab **Deploy**.
+Open `http://127.0.0.1:3000` and pick **Stage 17 · Deploy & limits** on the ladder.
 
 ## What to observe
 

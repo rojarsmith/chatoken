@@ -58,9 +58,6 @@ export default function TopBar({ apiBaseUrl, onApiBaseUrlChange, status, runtime
         <RefreshCw size={14} />
       </button>
 
-      <Link href="/legacy" className="lx-secondary" style={{ lineHeight: "32px", textDecoration: "none" }}>
-        Legacy console
-      </Link>
     </header>
   );
 }

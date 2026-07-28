@@ -96,8 +96,7 @@ curl -s -X POST http://127.0.0.1:8000/conversations/<CONVERSATION_ID>/messages ^
 
 ### In the console
 
-> The stage ladder ships in Phase 2 of the restructure. Until then this lives in the legacy
-> console tabs **Chat SFT** and **Conversation**.
+Open `http://127.0.0.1:3000` and pick **Stage 12 · Chat SFT** on the ladder.
 
 ## What to observe
 
