@@ -50,12 +50,24 @@
 
 ## apps/api
 
-FastAPI，邏輯放在 service，端點與任務註冊放在 `main.py`。
+FastAPI。`main.py` 只負責組裝應用程式，其餘各有各的位置。
+
+| 模組 | 職責 |
+| --- | --- |
+| `main.py` | App 中繼資料、CORS、router 註冊——僅此而已 |
+| `routers/` | 端點，依課程階段分組 |
+| `schemas/` | Pydantic 請求／回應模型，依領域分組 |
+| `converters.py` | Pydantic 模型 → service 接受的純 dataclass |
+| `dependencies.py` | 行程層級的單例：service、executor、任務註冊表 |
+| `jobs/registry.py` | chat、training、pretrained 共用的單一任務生命週期 |
 
 | Service | 職責 |
 | --- | --- |
 | `chat_service.py` | 已載入模型註冊表、生成、prompt 預覽、串流 |
-| `training_service.py` | 資料集註冊表、dataset builder、訓練執行、實驗紀錄 |
+| `training_service.py` | 訓練執行與實驗紀錄 |
+| `dataset_registry.py` | 以宣告式資料描述的資料集階梯 |
+| `dataset_inspect.py` | 預覽、split 計數、範例形狀 |
+| `experiment_compare.py` | 判斷兩次執行是否可比較 |
 | `pretrained_service.py` | GPT-2 下載與註冊 |
 | `conversation_service.py` | 記憶體中的會話、context 渲染、預算 |
 | `deployment_service.py` | 執行環境概況與資源估算 |
@@ -63,6 +75,9 @@ FastAPI，邏輯放在 service，端點與任務註冊放在 `main.py`。
 
 三種任務——chat、training、pretrained——共用一個生命週期
 （`queued → running → succeeded | failed | cancelled`），並採合作式取消。
+`JobRegistry` 只實作一次；chat 任務不帶 `progress` 清單，因為它本來就沒有。
+
+端點都掛上 `stage:<id>` 的 OpenAPI tag，因此 `/docs` 會自動依課程分組。
 
 所有狀態都在行程記憶體中：已載入的模型、會話與任務紀錄都會在重啟時消失。
 只有 checkpoint、下載內容、資料集與實驗紀錄在磁碟上。

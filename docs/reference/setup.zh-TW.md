@@ -84,6 +84,17 @@ python scripts\smoke_chat.py --message "Every effort moves you" --max-new-tokens
 輸出看起來像逸出位元組是**正確的**。模型還沒訓練過。
 [Stage 01](../stages/01-tokens.zh-TW.md) 會說明原因。
 
+## 執行測試
+
+API 有一組合約測試，釘住每個端點與回應結構。任何後端改動前後都應該跑一次：
+
+```cmd
+python -m pip install -e .[dev]
+python -m pytest
+```
+
+會建立 checkpoint 或實驗紀錄的測試在結束後會還原先前狀態，因此執行測試不會污染你自己的訓練歷史。
+
 ## 東西會寫到哪裡
 
 | 路徑 | 內容 | 在 git 中 |

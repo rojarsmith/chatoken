@@ -85,6 +85,19 @@ python scripts\smoke_chat.py --message "Every effort moves you" --max-new-tokens
 Output that looks like escaped bytes is **correct**. The model is untrained.
 [Stage 01](../stages/01-tokens.md) explains why.
 
+## Run the tests
+
+The API has a contract test suite that pins every endpoint and response shape.
+Run it before and after any backend change:
+
+```cmd
+python -m pip install -e .[dev]
+python -m pytest
+```
+
+Tests that create checkpoints or experiment records restore the previous state
+afterwards, so running them never pollutes your own training history.
+
 ## Where things are written
 
 | Path | Contents | In git |

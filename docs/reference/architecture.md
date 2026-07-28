@@ -50,12 +50,24 @@ Three dataset classes live in `training.py`, one per objective:
 
 ## apps/api
 
-FastAPI, with services holding the logic and `main.py` holding the endpoints and job registry.
+FastAPI. `main.py` only assembles the application; everything else has its own home.
+
+| Module | Responsibility |
+| --- | --- |
+| `main.py` | App metadata, CORS, router registration — nothing else |
+| `routers/` | Endpoints, grouped by course stage |
+| `schemas/` | Pydantic request/response models, grouped by domain |
+| `converters.py` | Pydantic models → the plain dataclasses services accept |
+| `dependencies.py` | Process-wide singletons: services, executor, job registries |
+| `jobs/registry.py` | One job lifecycle for chat, training, and pretrained work |
 
 | Service | Responsibility |
 | --- | --- |
 | `chat_service.py` | Loaded model registry, generation, prompt preview, streaming |
-| `training_service.py` | Dataset registry, dataset builder, training runs, experiment log |
+| `training_service.py` | Training runs and the experiment log |
+| `dataset_registry.py` | The dataset ladder as declarative data |
+| `dataset_inspect.py` | Previews, split counts, example shapes |
+| `experiment_compare.py` | Whether two runs may be compared at all |
 | `pretrained_service.py` | GPT-2 download and registration |
 | `conversation_service.py` | In-memory sessions, context rendering, budgets |
 | `deployment_service.py` | Runtime profile and resource estimates |
@@ -63,6 +75,10 @@ FastAPI, with services holding the logic and `main.py` holding the endpoints and
 
 Three job types — chat, training, pretrained — share one lifecycle
 (`queued → running → succeeded | failed | cancelled`) with cooperative cancellation.
+`JobRegistry` implements it once; chat jobs opt out of the `progress` list because
+they never reported one.
+
+Endpoints carry `stage:<id>` OpenAPI tags, so `/docs` groups itself by the course.
 
 All state is in process memory: loaded models, conversations, and job records vanish on
 restart. Only checkpoints, downloads, datasets, and the experiment log are on disk.
