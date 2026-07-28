@@ -35,13 +35,45 @@ async function request(baseUrl, path, options = {}) {
   return response.json();
 }
 
+const post = (baseUrl, path, body) =>
+  request(baseUrl, path, { method: "POST", body: JSON.stringify(body ?? {}) });
+
 export const api = {
   health: (baseUrl) => request(baseUrl, "/health"),
   models: (baseUrl) => request(baseUrl, "/models"),
-  chat: (baseUrl, body) =>
-    request(baseUrl, "/chat", { method: "POST", body: JSON.stringify(body) }),
-  promptPreview: (baseUrl, body) =>
-    request(baseUrl, "/chat/prompt-preview", { method: "POST", body: JSON.stringify(body) })
+  chat: (baseUrl, body) => post(baseUrl, "/chat", body),
+  promptPreview: (baseUrl, body) => post(baseUrl, "/chat/prompt-preview", body),
+
+  // Stage 04 · 05 · 06 — training
+  datasets: (baseUrl) => request(baseUrl, "/training/datasets"),
+  prepareDataset: (baseUrl, datasetId) =>
+    post(baseUrl, `/training/datasets/${datasetId}/prepare`),
+  createTrainingJob: (baseUrl, body) => post(baseUrl, "/training/jobs", body),
+  trainingJob: (baseUrl, jobId) => request(baseUrl, `/training/jobs/${jobId}`),
+  cancelTrainingJob: (baseUrl, jobId) => post(baseUrl, `/training/jobs/${jobId}/cancel`),
+
+  // Stage 07 — checkpoints
+  checkpoints: (baseUrl) => request(baseUrl, "/checkpoints"),
+  loadModel: (baseUrl, body) => post(baseUrl, "/models/load", body),
+
+  // Stage 08 — pretrained GPT-2
+  pretrainedModels: (baseUrl) => request(baseUrl, "/pretrained/models"),
+  createPretrainedJob: (baseUrl, body) => post(baseUrl, "/pretrained/jobs", body),
+  pretrainedJob: (baseUrl, jobId) => request(baseUrl, `/pretrained/jobs/${jobId}`),
+  cancelPretrainedJob: (baseUrl, jobId) => post(baseUrl, `/pretrained/jobs/${jobId}/cancel`)
+};
+
+export const JOB_ENDPOINTS = {
+  training: {
+    create: api.createTrainingJob,
+    get: api.trainingJob,
+    cancel: api.cancelTrainingJob
+  },
+  pretrained: {
+    create: api.createPretrainedJob,
+    get: api.pretrainedJob,
+    cancel: api.cancelPretrainedJob
+  }
 };
 
 /**

@@ -7,21 +7,33 @@
       "number": 1,
       "title": "Generate",
       "tagline": "a model can produce tokens",
-      "stages": ["01-tokens", "02-forward-pass", "03-decoding"]
+      "stages": [
+        "01-tokens",
+        "02-forward-pass",
+        "03-decoding"
+      ]
     },
     {
       "id": "train",
       "number": 2,
       "title": "Train",
       "tagline": "a model can learn from data",
-      "stages": ["04-training-loop", "05-training-knobs", "06-data-scale", "07-checkpoints"]
+      "stages": [
+        "04-training-loop",
+        "05-training-knobs",
+        "06-data-scale",
+        "07-checkpoints"
+      ]
     },
     {
       "id": "reuse",
       "number": 3,
       "title": "Reuse",
       "tagline": "stand on someone else's training",
-      "stages": ["08-pretrained-gpt2", "09-prompt-format"]
+      "stages": [
+        "08-pretrained-gpt2",
+        "09-prompt-format"
+      ]
     },
     {
       "id": "align",
@@ -41,7 +53,11 @@
       "number": 5,
       "title": "Ship",
       "tagline": "turn a model into a system",
-      "stages": ["15-conversation-memory", "16-streaming-cancel", "17-deploy-limits"]
+      "stages": [
+        "15-conversation-memory",
+        "16-streaming-cancel",
+        "17-deploy-limits"
+      ]
     }
   ],
   "stages": [
@@ -65,7 +81,9 @@
       "focus": "Ids become vectors, vectors flow through blocks, and what comes out is one score per vocabulary entry.",
       "doc": "docs/stages/02-forward-pass.md",
       "docZh": "docs/stages/02-forward-pass.zh-TW.md",
-      "requires": ["01-tokens"],
+      "requires": [
+        "01-tokens"
+      ],
       "legacyTab": "GPT Model",
       "implemented": true
     },
@@ -77,7 +95,9 @@
       "focus": "Sampling controls the shape of the output. It cannot add knowledge.",
       "doc": "docs/stages/03-decoding.md",
       "docZh": "docs/stages/03-decoding.zh-TW.md",
-      "requires": ["02-forward-pass"],
+      "requires": [
+        "02-forward-pass"
+      ],
       "legacyTab": "Chat",
       "implemented": true
     },
@@ -89,9 +109,11 @@
       "focus": "Loss is the signal that turns data into weights.",
       "doc": "docs/stages/04-training-loop.md",
       "docZh": "docs/stages/04-training-loop.zh-TW.md",
-      "requires": ["03-decoding"],
+      "requires": [
+        "03-decoding"
+      ],
       "legacyTab": "From Scratch",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "05-training-knobs",
@@ -101,9 +123,11 @@
       "focus": "Hyperparameters change the loop, not the architecture.",
       "doc": "docs/stages/05-training-knobs.md",
       "docZh": "docs/stages/05-training-knobs.zh-TW.md",
-      "requires": ["04-training-loop"],
+      "requires": [
+        "04-training-loop"
+      ],
       "legacyTab": "Training Config",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "06-data-scale",
@@ -113,9 +137,11 @@
       "focus": "Better data beats more steps.",
       "doc": "docs/stages/06-data-scale.md",
       "docZh": "docs/stages/06-data-scale.zh-TW.md",
-      "requires": ["05-training-knobs"],
+      "requires": [
+        "05-training-knobs"
+      ],
       "legacyTab": "Raw Text",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "07-checkpoints",
@@ -125,9 +151,11 @@
       "focus": "A model is a file with lineage.",
       "doc": "docs/stages/07-checkpoints.md",
       "docZh": "docs/stages/07-checkpoints.zh-TW.md",
-      "requires": ["06-data-scale"],
+      "requires": [
+        "06-data-scale"
+      ],
       "legacyTab": "Checkpoints",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "08-pretrained-gpt2",
@@ -137,9 +165,11 @@
       "focus": "The architecture does not change. Someone else already paid for the training.",
       "doc": "docs/stages/08-pretrained-gpt2.md",
       "docZh": "docs/stages/08-pretrained-gpt2.zh-TW.md",
-      "requires": ["07-checkpoints"],
+      "requires": [
+        "07-checkpoints"
+      ],
       "legacyTab": "GPT-2",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "09-prompt-format",
@@ -149,9 +179,11 @@
       "focus": "Formatting changes behavior with zero weight change.",
       "doc": "docs/stages/09-prompt-format.md",
       "docZh": "docs/stages/09-prompt-format.zh-TW.md",
-      "requires": ["08-pretrained-gpt2"],
+      "requires": [
+        "08-pretrained-gpt2"
+      ],
       "legacyTab": "Prompt Lab",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "10-instruction-sft",
@@ -161,7 +193,9 @@
       "focus": "Training on (instruction, response) pairs is what makes a model answer.",
       "doc": "docs/stages/10-instruction-sft.md",
       "docZh": "docs/stages/10-instruction-sft.zh-TW.md",
-      "requires": ["09-prompt-format"],
+      "requires": [
+        "09-prompt-format"
+      ],
       "legacyTab": "Instruction",
       "implemented": false
     },
@@ -173,7 +207,9 @@
       "focus": "The same behavior change, training roughly one percent as many parameters.",
       "doc": "docs/stages/11-lora.md",
       "docZh": "docs/stages/11-lora.zh-TW.md",
-      "requires": ["10-instruction-sft"],
+      "requires": [
+        "10-instruction-sft"
+      ],
       "legacyTab": "LoRA",
       "implemented": false
     },
@@ -185,7 +221,9 @@
       "focus": "Multi-turn transcripts teach turn-taking, and the loss should only cover the assistant's words.",
       "doc": "docs/stages/12-chat-sft.md",
       "docZh": "docs/stages/12-chat-sft.zh-TW.md",
-      "requires": ["11-lora"],
+      "requires": [
+        "11-lora"
+      ],
       "legacyTab": "Chat SFT",
       "implemented": false
     },
@@ -197,7 +235,9 @@
       "focus": "Your data is the product. Fine-tuning quality is decided before the optimizer starts.",
       "doc": "docs/stages/13-your-own-dataset.md",
       "docZh": "docs/stages/13-your-own-dataset.zh-TW.md",
-      "requires": ["12-chat-sft"],
+      "requires": [
+        "12-chat-sft"
+      ],
       "legacyTab": "Dataset Builder",
       "implemented": false
     },
@@ -209,7 +249,9 @@
       "focus": "Compare only what is comparable.",
       "doc": "docs/stages/14-compare-runs.md",
       "docZh": "docs/stages/14-compare-runs.zh-TW.md",
-      "requires": ["13-your-own-dataset"],
+      "requires": [
+        "13-your-own-dataset"
+      ],
       "legacyTab": "Experiments",
       "implemented": false
     },
@@ -221,7 +263,9 @@
       "focus": "The model is stateless. The application supplies the memory.",
       "doc": "docs/stages/15-conversation-memory.md",
       "docZh": "docs/stages/15-conversation-memory.zh-TW.md",
-      "requires": ["14-compare-runs"],
+      "requires": [
+        "14-compare-runs"
+      ],
       "legacyTab": "Conversation",
       "implemented": false
     },
@@ -233,7 +277,9 @@
       "focus": "Tokens arrive one at a time, and users must be able to stop.",
       "doc": "docs/stages/16-streaming-cancel.md",
       "docZh": "docs/stages/16-streaming-cancel.zh-TW.md",
-      "requires": ["15-conversation-memory"],
+      "requires": [
+        "15-conversation-memory"
+      ],
       "legacyTab": "Chat",
       "implemented": false
     },
@@ -245,7 +291,9 @@
       "focus": "Cost is context length × concurrency.",
       "doc": "docs/stages/17-deploy-limits.md",
       "docZh": "docs/stages/17-deploy-limits.zh-TW.md",
-      "requires": ["16-streaming-cancel"],
+      "requires": [
+        "16-streaming-cancel"
+      ],
       "legacyTab": "Deploy",
       "implemented": false
     }
@@ -263,11 +311,41 @@
     }
   ],
   "reference": [
-    { "id": "setup", "title": "Setup", "doc": "docs/reference/setup.md", "docZh": "docs/reference/setup.zh-TW.md" },
-    { "id": "gpu-runtime", "title": "GPU runtime", "doc": "docs/reference/gpu-runtime.md", "docZh": "docs/reference/gpu-runtime.zh-TW.md" },
-    { "id": "api", "title": "API", "doc": "docs/reference/api.md", "docZh": "docs/reference/api.zh-TW.md" },
-    { "id": "architecture", "title": "Architecture", "doc": "docs/reference/architecture.md", "docZh": "docs/reference/architecture.zh-TW.md" },
-    { "id": "glossary", "title": "Glossary", "doc": "docs/reference/glossary.md", "docZh": "docs/reference/glossary.zh-TW.md" },
-    { "id": "troubleshooting", "title": "Troubleshooting", "doc": "docs/reference/troubleshooting.md", "docZh": "docs/reference/troubleshooting.zh-TW.md" }
+    {
+      "id": "setup",
+      "title": "Setup",
+      "doc": "docs/reference/setup.md",
+      "docZh": "docs/reference/setup.zh-TW.md"
+    },
+    {
+      "id": "gpu-runtime",
+      "title": "GPU runtime",
+      "doc": "docs/reference/gpu-runtime.md",
+      "docZh": "docs/reference/gpu-runtime.zh-TW.md"
+    },
+    {
+      "id": "api",
+      "title": "API",
+      "doc": "docs/reference/api.md",
+      "docZh": "docs/reference/api.zh-TW.md"
+    },
+    {
+      "id": "architecture",
+      "title": "Architecture",
+      "doc": "docs/reference/architecture.md",
+      "docZh": "docs/reference/architecture.zh-TW.md"
+    },
+    {
+      "id": "glossary",
+      "title": "Glossary",
+      "doc": "docs/reference/glossary.md",
+      "docZh": "docs/reference/glossary.zh-TW.md"
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting",
+      "doc": "docs/reference/troubleshooting.md",
+      "docZh": "docs/reference/troubleshooting.zh-TW.md"
+    }
   ]
 }

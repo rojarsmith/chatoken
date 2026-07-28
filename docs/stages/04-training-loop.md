@@ -101,8 +101,11 @@ with `"model_id":"trained-tiny-byte"` — and compare.
 4. **`tokens_seen` grows by `batch_size × block_size` per step** — 128 tokens per step at the
    defaults. Compare that to the size of the dataset and you will see the model reads the same
    text many times over.
-5. **The after sample** reproduces `Every effort moves you forward.` The model has not learned
-   English; it has learned this file.
+5. **The after sample contains recognizable fragments of the training text** — pieces like
+   `Every`, `forwar`, and `Ast:` instead of random bytes. It does *not* reproduce the sentence
+   cleanly, even at 800 steps with the loss near 0.09: a 2-layer, 64-dimension model working one
+   byte at a time does not have the capacity. "Learned this file" and "can reproduce this file"
+   are different claims, and only the first one is true here.
 6. **A checkpoint path is printed.** That file is the entire result of the run — Stage 07 is
    about what is inside it.
 

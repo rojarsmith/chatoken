@@ -141,6 +141,16 @@
   padding-right: 4px;
 }
 
+/*
+ * Flex items default to flex-shrink: 1. In a column flex container with a
+ * max-height, that makes every card squash to fit instead of letting the rail
+ * scroll — and because .lx-part sets overflow: hidden, the squashed cards
+ * silently clipped their last stage rows. Keep natural heights and scroll.
+ */
+.lx-rail > * {
+  flex: none;
+}
+
 .lx-rail-progress {
   padding: 12px 14px;
   background: var(--surface);
@@ -806,4 +816,57 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
+}
+
+/* ---------- compare columns (Phase 3) ---------- */
+
+.lx-compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.lx-compare .lx-block-label {
+  margin-bottom: 6px;
+}
+
+.lx-runlog {
+  margin-top: 14px;
+}
+
+.lx-runlog td.num,
+.lx-runlog th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.lx-rung {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-alt);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.lx-rung.selected {
+  border-color: var(--blue);
+  background: #eef4ff;
+}
+
+.lx-rung b {
+  font-size: 13.5px;
+}
+
+.lx-rung small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.lx-rung-spacer {
+  flex: 1;
 }

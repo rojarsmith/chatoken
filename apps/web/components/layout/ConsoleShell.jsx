@@ -1,12 +1,12 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext } from "react";
 
 import LadderRail from "./LadderRail";
 import Playground from "./Playground";
 import TopBar from "./TopBar";
 import WorkbenchDrawer from "./WorkbenchDrawer";
-import { useApiBaseUrl, useModels, useProgress, useRuntime } from "../../lib/hooks";
+import { useApiBaseUrl, useModelId, useModels, useProgress, useRuntime } from "../../lib/hooks";
 
 const ConsoleContext = createContext(null);
 
@@ -21,7 +21,7 @@ export default function ConsoleShell({ currentStageId = null, showRail = true, s
   const { runtime, status, refresh: refreshRuntime } = useRuntime(apiBaseUrl);
   const { models, refresh: refreshModels } = useModels(apiBaseUrl);
   const { stateOf, setStageState, doneCount } = useProgress();
-  const [modelId, setModelId] = useState("random-tiny-byte");
+  const [modelId, setModelId] = useModelId();
 
   const contextValue = {
     apiBaseUrl,
@@ -78,7 +78,7 @@ export default function ConsoleShell({ currentStageId = null, showRail = true, s
           ) : null}
         </div>
 
-        <WorkbenchDrawer models={models} runtime={runtime} />
+        <WorkbenchDrawer models={models} runtime={runtime} apiBaseUrl={apiBaseUrl} />
       </div>
     </ConsoleContext.Provider>
   );

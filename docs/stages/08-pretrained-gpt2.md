@@ -33,12 +33,18 @@ Only the config numbers change.
 | `qkv_bias` | `False` | `True` |
 | `tokenizer` | `byte` | `gpt2` |
 | `prompt_style` | `chat` | `instruction` |
-| Parameters | 136,704 | ~124,000,000 |
+| Parameters | 136,704 | 163,037,184 |
 
-That is roughly **900× more parameters** in the same code. The weights are downloaded from
+That is roughly **1,190× more parameters** in the same code. The weights are downloaded from
 `openai-community/gpt2` and copied into the module tree by `_load_hf_gpt2_weights`, which maps
 Hugging Face's parameter names onto this project's layer names. Reading that function is the
 clearest available proof that "GPT-2" and "the model you wrote" are the same architecture.
+
+**Why the count is not 124,000,000.** Hugging Face *ties* GPT-2's output head to its token
+embedding — the same weight matrix serves both — and "124M" is that tied count of 124,439,808.
+This project keeps a separate `out_head`, so it stores one extra `emb_dim × vocab_size` matrix:
+`768 × 50,257 = 38,597,376`. Add them and you get exactly the 163,037,184 the API reports. The
+weights are identical; the head is a copy of `wte`, not new knowledge.
 
 Two things change alongside the weights:
 

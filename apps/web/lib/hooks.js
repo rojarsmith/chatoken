@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { api, DEFAULT_API_BASE_URL } from "./api";
 
 const API_BASE_KEY = "chatoken.apiBaseUrl";
+const MODEL_ID_KEY = "chatoken.modelId";
 const PROGRESS_PREFIX = "chatoken.progress.";
 
 /** The API base URL, persisted so it survives a reload. */
@@ -22,6 +23,27 @@ export function useApiBaseUrl() {
   }, []);
 
   return [baseUrl, update];
+}
+
+/**
+ * The model the Playground talks to. Persisted, because each route mounts its own
+ * ConsoleShell — without this, loading GPT-2 in Stage 08 would be forgotten the
+ * moment you walked to Stage 09.
+ */
+export function useModelId() {
+  const [modelId, setModelId] = useState("random-tiny-byte");
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(MODEL_ID_KEY);
+    if (stored) setModelId(stored);
+  }, []);
+
+  const update = useCallback((next) => {
+    setModelId(next);
+    window.localStorage.setItem(MODEL_ID_KEY, next);
+  }, []);
+
+  return [modelId, update];
 }
 
 /** Polls nothing — refreshes on demand and on mount. Keeps the top bar honest. */
@@ -107,6 +129,77 @@ export function useProgress() {
   );
 
   return { progress, stateOf, setStageState, doneCount };
+}
+
+const TERMINAL_STATES = new Set(["succeeded", "failed", "cancelled"]);
+
+/**
+ * Creates a job, then polls it until it reaches a terminal state.
+ * Chat, training, and pretrained jobs share one lifecycle, so they share this hook.
+ */
+export function useJob(baseUrl, endpoints) {
+  const [job, setJob] = useState(null);
+  const [error, setError] = useState(null);
+  const [starting, setStarting] = useState(false);
+  const timer = useRef(null);
+
+  const stopPolling = useCallback(() => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+  }, []);
+
+  const poll = useCallback(
+    async (jobId) => {
+      try {
+        const next = await endpoints.get(baseUrl, jobId);
+        setJob(next);
+        if (!TERMINAL_STATES.has(next.status)) {
+          timer.current = setTimeout(() => poll(jobId), 700);
+        }
+      } catch (err) {
+        setError(err.message);
+      }
+    },
+    [baseUrl, endpoints]
+  );
+
+  const start = useCallback(
+    async (body) => {
+      stopPolling();
+      setStarting(true);
+      setError(null);
+      setJob(null);
+      try {
+        const created = await endpoints.create(baseUrl, body);
+        setJob(created);
+        poll(created.job_id);
+        return created;
+      } catch (err) {
+        setError(err.message);
+        return null;
+      } finally {
+        setStarting(false);
+      }
+    },
+    [baseUrl, endpoints, poll, stopPolling]
+  );
+
+  const cancel = useCallback(async () => {
+    if (!job?.job_id) return;
+    try {
+      setJob(await endpoints.cancel(baseUrl, job.job_id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }, [baseUrl, endpoints, job]);
+
+  useEffect(() => stopPolling, [stopPolling]);
+
+  const running = Boolean(job && !TERMINAL_STATES.has(job.status));
+
+  return { job, error, start, cancel, starting, running };
 }
 
 /** Wraps an async action with pending/error/result state so panels stay small. */
