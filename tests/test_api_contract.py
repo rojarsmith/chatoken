@@ -249,3 +249,50 @@ def test_external_models_never_leak_credentials(client):
         for key, value in model.items():
             if isinstance(value, str):
                 assert not value.lower().startswith(("sk-", "bearer ")), f"{key} looks like a credential"
+
+
+# ---------------------------------------------------------------- device switching
+
+def test_device_can_be_switched_between_cpu_and_auto(client):
+    original = client.get("/runtime/device").json()
+    assert original["preference"] in {"auto", "cuda", "cpu"}
+    assert {o["id"] for o in original["options"]} == {"auto", "cuda", "cpu"}
+
+    try:
+        forced = client.post("/runtime/device", json={"preference": "cpu"}).json()
+        assert forced["preference"] == "cpu"
+        assert forced["device"] == "cpu"
+
+        # /health must report the effective device, not the hardware default.
+        assert client.get("/health").json()["device"] == "cpu"
+
+        # Generation still works on the forced device.
+        reply = client.post("/chat", json={
+            "message": "Every effort moves you", "model_id": "random-tiny-byte",
+            "max_new_tokens": 4, "temperature": 0}).json()
+        assert reply["reply"] is not None
+    finally:
+        client.post("/runtime/device", json={"preference": original["preference"]})
+
+    assert client.get("/runtime/device").json()["preference"] == original["preference"]
+
+
+def test_requesting_cuda_without_cuda_is_rejected(client):
+    import torch
+
+    if torch.cuda.is_available():
+        # CUDA is present, so selecting it must succeed and be reported.
+        original = client.get("/runtime/device").json()["preference"]
+        try:
+            body = client.post("/runtime/device", json={"preference": "cuda"}).json()
+            assert body["device"] == "cuda"
+        finally:
+            client.post("/runtime/device", json={"preference": original})
+    else:
+        response = client.post("/runtime/device", json={"preference": "cuda"})
+        assert response.status_code == 400
+        assert "CUDA is not available" in response.json()["detail"]
+
+
+def test_unknown_device_preference_is_rejected(client):
+    assert client.post("/runtime/device", json={"preference": "tpu"}).status_code == 422

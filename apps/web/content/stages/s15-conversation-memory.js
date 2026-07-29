@@ -28,6 +28,7 @@ export default {
     "Two different omission counts are reported — history limit and token budget. They are separate policies and can fire independently.",
     "Raising max_history_messages does not raise context_length. Application policy cannot exceed architecture; try it and watch the warning persist.",
     "Each stored message records the model that produced it, so switching models mid-session leaves a mixed history rather than rewriting old turns.",
+    "A mixed session poisons the new model. Chat with random-tiny-byte, switch to gpt2-124M, and ask again: GPT-2 replies with escaped bytes too. The transcript shows it an assistant turn full of them, and a next-token predictor continues the pattern it is given. Start a new session to judge a model on its own.",
     "Restarting the API empties everything — sessions are in process memory by design."
   ],
   exitCheck: [

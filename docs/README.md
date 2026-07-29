@@ -11,6 +11,13 @@ can use to decide whether to move on.
 > **Console.** The stage ladder is live at `http://127.0.0.1:3000`. All 17 stages and the
 > optional track have interactive panels. Each stage document also gives command-line and API
 > steps, so the course can be followed without the console at all.
+>
+> **The assistant** at `/assistant` is the product the course builds up to: a chat app with
+> sessions and settings, running on whatever model you have trained. It works from stage one —
+> it simply answers badly until you have trained something.
+>
+> **GPU or CPU** can be switched from the top bar at any time, without restarting the API.
+> Running Stage 04 on each is a more concrete lesson about the GPU than any paragraph.
 
 ## Before you start
 

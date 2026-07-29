@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect } from "react";
 
 import LadderRail from "./LadderRail";
 import Playground from "./Playground";
@@ -22,6 +22,15 @@ export default function ConsoleShell({ currentStageId = null, showRail = true, s
   const { models, refresh: refreshModels } = useModels(apiBaseUrl);
   const { stateOf, setStageState, doneCount } = useProgress();
   const [modelId, setModelId] = useModelId();
+
+
+  // A model id persists across API restarts, but loaded models do not. Fall back
+  // to something that actually exists rather than pointing at a ghost.
+  useEffect(() => {
+    if (models.length === 0) return;
+    if (models.some((model) => model.model_id === modelId)) return;
+    setModelId(models[0].model_id);
+  }, [models, modelId, setModelId]);
 
   const contextValue = {
     apiBaseUrl,

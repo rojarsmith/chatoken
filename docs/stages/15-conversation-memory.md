@@ -116,6 +116,11 @@ Open `http://127.0.0.1:3000` and pick **Stage 15 · Conversation memory** on the
    cannot exceed architecture. Try it and watch the warning persist.
 5. **Each stored message records the model that produced it.** Switching models mid-session
    does not rewrite older turns — the badges show a mixed history.
+6. **A mixed session poisons the new model.** Chat with `random-tiny-byte`, then switch to
+   `gpt2-124M` in the same session and ask again: GPT-2 replies with escaped bytes too. It is
+   not broken. The transcript shows it a turn beginning `Assistant: ·...`, and a
+   next-token predictor continues the pattern it is given. Start a new session to judge a model
+   on its own — and note that this is the same mechanism that makes Stage 12's chat data work.
 6. **Restarting the API empties everything.** In-memory storage, stated up front.
 
 ## Exit check

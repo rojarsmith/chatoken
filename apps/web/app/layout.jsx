@@ -1,5 +1,6 @@
 import "./globals.css";
 import "./ladder.css";
+import "./assistant.css";
 
 export const metadata = {
   title: "Chatoken Console",

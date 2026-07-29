@@ -13,6 +13,11 @@ API 執行中時，互動式文件在 `/docs`。
 | --- | --- | --- | --- |
 | `GET` | `/health` | 安裝 | 裝置、CUDA 可用性、runtime 資訊 |
 | `GET` | `/models` | 02 | 本機已載入的模型 |
+| `GET` | `/runtime/device` | — | 目前裝置、偏好設定與可用選項 |
+| `POST` | `/runtime/device` | — | 不重啟就切換 `auto`、`cuda`、`cpu` |
+
+切換裝置時也會把已載入的模型搬過去。在沒有 CUDA 的環境選 `cuda` 會回 `400`，
+而不是靜默退回 CPU——沒生效的偏好設定應該講出來。
 
 ## Chat 與生成
 

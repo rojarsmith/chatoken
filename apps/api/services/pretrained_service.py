@@ -5,6 +5,7 @@ from typing import Callable
 
 import torch
 
+from apps.api.services import device_service
 from apps.api.services.chat_service import ChatService
 from llm_core.gpt2 import download_and_load_gpt2, list_gpt2_models
 
@@ -31,7 +32,7 @@ class PretrainedService:
             model_id=model_id,
             progress_callback=progress_callback,
         )
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = device_service.resolve()
         loaded = self._chat_service.register_model(
             model_id=model_config.name,
             config=model_config,

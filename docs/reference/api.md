@@ -13,6 +13,12 @@ Every endpoint, grouped by the stage that introduces it. Base URL for local deve
 | --- | --- | --- | --- |
 | `GET` | `/health` | Setup | Device, CUDA availability, runtime info |
 | `GET` | `/models` | 02 | Locally loaded models |
+| `GET` | `/runtime/device` | — | Current device, preference, and the options available |
+| `POST` | `/runtime/device` | — | Switch between `auto`, `cuda`, and `cpu` without restarting |
+
+Switching the device also moves already-loaded models onto it. Selecting `cuda`
+where no CUDA device exists is rejected with `400` rather than silently falling
+back — a preference that did not take should say so.
 
 ## Chat and generation
 

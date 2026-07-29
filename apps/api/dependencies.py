@@ -10,8 +10,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 
-import torch
-
+from apps.api.services import device_service
 from apps.api.jobs.registry import JobRegistry
 from apps.api.services.chat_service import ChatService
 from apps.api.services.conversation_service import ConversationService
@@ -38,12 +37,18 @@ pretrained_jobs = JobRegistry("Pretrained", executor)
 
 
 def runtime_info() -> dict:
-    cuda_available = torch.cuda.is_available()
+    """Runtime shape for /health and the deployment profile.
+
+    Delegates to device_service so the reported device is the one work will
+    actually run on, including a forced CPU or CUDA preference.
+    """
+    described = device_service.describe()
     return {
-        "torch_version": torch.__version__,
-        "device": "cuda" if cuda_available else "cpu",
-        "cuda_available": cuda_available,
-        "cuda_version": torch.version.cuda,
-        "device_count": torch.cuda.device_count(),
-        "device_name": torch.cuda.get_device_name(0) if cuda_available else None,
+        "torch_version": described["torch_version"],
+        "device": described["device"],
+        "cuda_available": described["cuda_available"],
+        "cuda_version": described["cuda_version"],
+        "device_count": described["device_count"],
+        "device_name": described["device_name"],
+        "device_preference": described["preference"],
     }

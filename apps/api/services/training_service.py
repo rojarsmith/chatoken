@@ -11,6 +11,7 @@ from uuid import uuid4
 import requests
 import torch
 
+from apps.api.services import device_service
 from apps.api.services.chat_service import ChatService
 from apps.api.services.dataset_inspect import (
     _chat_dataset_metadata,
@@ -306,6 +307,7 @@ class TrainingService:
             )
         training_summary["device"] = str(device)
         training_summary["cuda_available"] = torch.cuda.is_available()
+        training_summary["device_preference"] = device_service.get_preference()
         training_summary["device_name"] = (
             torch.cuda.get_device_name(0) if torch.cuda.is_available() else None
         )

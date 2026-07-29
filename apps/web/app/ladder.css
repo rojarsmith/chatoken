@@ -870,3 +870,241 @@
 .lx-rung-spacer {
   flex: 1;
 }
+
+/* ---------- reading comfort ----------
+ * Measured before this block: 132 characters per line, 14px type, 3.2 screens
+ * of scrolling for one stage. Long measure is the single biggest cause of
+ * reading fatigue; 60-70 characters is the comfortable range.
+ */
+
+.lx-card p,
+.lx-card ol,
+.lx-card ul,
+.lx-check span {
+  max-width: 68ch;
+}
+
+.lx-card p,
+.lx-card li {
+  font-size: 15px;
+  line-height: 1.72;
+}
+
+.lx-canvas {
+  gap: 20px;
+}
+
+.lx-card {
+  padding: 22px 24px;
+}
+
+.lx-card h2 {
+  margin-bottom: 10px;
+}
+
+.lx-focus {
+  font-size: 16px;
+  line-height: 1.6;
+  padding: 14px 16px;
+  max-width: 72ch;
+}
+
+.lx-block-label {
+  margin-bottom: 14px;
+}
+
+/* Numbered observations read better with room between them. */
+.lx-card ol li + li,
+.lx-card ul li + li {
+  margin-top: 9px;
+}
+
+.lx-note {
+  max-width: 72ch;
+  line-height: 1.65;
+}
+
+.lx-deepdive {
+  max-width: 72ch;
+}
+
+/* Collapsed blocks: a quiet summary row rather than a wall of text. */
+.lx-fold {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 0;
+}
+
+.lx-fold > summary {
+  cursor: pointer;
+  padding: 14px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lx-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.lx-fold > summary::before {
+  content: "▸";
+  font-size: 11px;
+  transition: transform 120ms ease;
+}
+
+.lx-fold[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.lx-fold > summary:hover {
+  background: var(--surface-alt);
+  border-radius: 12px;
+}
+
+.lx-fold-count {
+  margin-left: auto;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.lx-fold-body {
+  padding: 4px 20px 20px;
+}
+
+.lx-inline-fold {
+  margin-top: 14px;
+}
+
+.lx-inline-fold > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--blue);
+  padding: 6px 0;
+}
+
+.lx-inline-fold > summary:hover {
+  text-decoration: underline;
+}
+
+/* ---------- notes ----------
+ * Some stages carry four of these. As filled amber blocks they read as four
+ * consecutive warnings and dominate the page. A quiet left rule keeps the
+ * aside legible without shouting; genuine warnings opt back in with .warn.
+ */
+
+.lx-note {
+  margin-top: 14px;
+  padding: 2px 0 2px 14px;
+  border: 0;
+  border-left: 3px solid var(--line-strong);
+  background: transparent;
+  border-radius: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #4a5568;
+}
+
+.lx-note.warn {
+  border-left-color: #e0b34d;
+  background: var(--amber-bg);
+  border-radius: 0 10px 10px 0;
+  padding: 12px 14px;
+  color: #7a4d06;
+}
+
+/* ---------- device selector ---------- */
+
+.lx-device {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-alt);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.lx-device select {
+  width: auto;
+  min-height: 0;
+  padding: 0 18px 0 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.lx-device select:focus {
+  outline: none;
+}
+
+.lx-device-now {
+  padding-left: 7px;
+  border-left: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-weight: 550;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lx-device-now.cuda {
+  color: var(--green);
+}
+
+.lx-device-error {
+  color: var(--red);
+  font-size: 11px;
+}
+
+/* ---------- the payoff link on the course map ---------- */
+
+.lx-payoff {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 22px;
+  padding: 18px 22px;
+  border: 1px solid #cfe0ff;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f7faff, #eef4ff);
+  text-decoration: none;
+  color: inherit;
+}
+
+.lx-payoff:hover {
+  border-color: var(--blue);
+}
+
+.lx-payoff b {
+  display: block;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.lx-payoff span {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 68ch;
+}
+
+.lx-payoff-go {
+  margin-left: auto;
+  flex: none;
+  font-weight: 650;
+  color: var(--blue-dark) !important;
+}

@@ -28,6 +28,17 @@ function CurriculumMap() {
         </p>
       </header>
 
+      <Link href="/assistant" className="lx-payoff">
+        <div>
+          <b>Open the assistant</b>
+          <span>
+            The product this course builds: a chat app running on the models you train. Works
+            from stage one — it just answers badly until you have trained something.
+          </span>
+        </div>
+        <span className="lx-payoff-go">Open →</span>
+      </Link>
+
       <div className="lx-map-parts">
         {PARTS.map((part) => (
           <section key={part.id} className="lx-map-part">

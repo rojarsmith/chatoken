@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from concurrent.futures import CancelledError
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import Lock
 from typing import Callable, Iterator
 
 import torch
 
+from apps.api.services import device_service
 from llm_core.checkpoints import (
     checkpoint_metadata,
     find_checkpoint,
@@ -126,7 +127,7 @@ class ChatService:
         config_data["name"] = loaded_model_id
         config_data["description"] = f"Checkpoint model loaded from {checkpoint_id}."
         model_config = ModelConfig(**config_data)
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = device_service.resolve()
         model = GPTModel(model_config.to_dict()).to(device)
         model.load_state_dict(payload["state_dict"])
         model.eval()
@@ -157,7 +158,7 @@ class ChatService:
         device: torch.device | None = None,
         state: str = "loaded-model",
     ) -> dict:
-        target_device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        target_device = device or device_service.resolve()
         model.to(target_device)
         model.eval()
         self._models[model_id] = LoadedModel(
@@ -175,9 +176,25 @@ class ChatService:
             "state": state,
         }
 
+    def move_loaded_models(self, device: torch.device) -> list[str]:
+        """Move every loaded model onto `device`.
+
+        Switching the preference is useless if the models already in memory stay
+        where they were — the next chat would still run on the old device.
+        """
+        moved = []
+        for model_id, loaded in list(self._models.items()):
+            if loaded.device == device:
+                continue
+            with self._locks[model_id]:
+                loaded.model.to(device)
+                self._models[model_id] = replace(loaded, device=device)
+            moved.append(model_id)
+        return moved
+
     def clone_model_for_training(self, model_id: str) -> LoadedModel:
         loaded = self._get_model(model_id)
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = device_service.resolve()
         model = GPTModel(loaded.config.to_dict()).to(device)
         with self._locks[model_id]:
             state_dict = {
@@ -370,7 +387,7 @@ class ChatService:
     def _load_random_model(self, model_id: str, config: ModelConfig) -> LoadedModel:
         torch.manual_seed(config.seed)
         tokenizer = tokenizer_for_name(config.tokenizer)
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = device_service.resolve()
         model = GPTModel(config.to_dict()).to(device)
         model.eval()
         return LoadedModel(

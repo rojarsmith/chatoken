@@ -4,13 +4,18 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
+from apps.api.services import device_service
 from apps.api.dependencies import (
     chat_service,
     pretrained_jobs,
     pretrained_service,
     runtime_info,
 )
-from apps.api.schemas import ModelLoadRequest, PretrainedLoadRequest
+from apps.api.schemas import (
+    DevicePreferenceRequest,
+    ModelLoadRequest,
+    PretrainedLoadRequest,
+)
 
 router = APIRouter(tags=["runtime"])
 
@@ -23,6 +28,29 @@ def health() -> dict:
 @router.get("/models", tags=["stage:02-forward-pass"])
 def list_models() -> list[dict]:
     return chat_service.list_models()
+
+
+# ---------------------------------------------------------------- device
+
+@router.get("/runtime/device")
+def get_runtime_device() -> dict:
+    return device_service.describe()
+
+
+@router.post("/runtime/device")
+def set_runtime_device(request: DevicePreferenceRequest) -> dict:
+    """Switch between GPU and CPU without restarting the API.
+
+    Already-loaded models are moved too, otherwise the next request would still
+    run on the device they were loaded onto.
+    """
+    try:
+        device_service.set_preference(request.preference)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    moved = chat_service.move_loaded_models(device_service.resolve())
+    return {**device_service.describe(), "moved_models": moved}
 
 
 # ---------------------------------------------------------------- checkpoints

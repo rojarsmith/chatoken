@@ -41,6 +41,8 @@ const post = (baseUrl, path, body) =>
 export const api = {
   health: (baseUrl) => request(baseUrl, "/health"),
   models: (baseUrl) => request(baseUrl, "/models"),
+  device: (baseUrl) => request(baseUrl, "/runtime/device"),
+  setDevice: (baseUrl, preference) => post(baseUrl, "/runtime/device", { preference }),
   chat: (baseUrl, body) => post(baseUrl, "/chat", body),
   promptPreview: (baseUrl, body) => post(baseUrl, "/chat/prompt-preview", body),
 

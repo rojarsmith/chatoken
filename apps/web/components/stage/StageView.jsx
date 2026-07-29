@@ -53,22 +53,35 @@ export default function StageView({ stage }) {
             <content.Panel />
           </section>
 
-          <section className="lx-card">
-            <span className="lx-block-label">Observe</span>
-            <ol>
-              {content.observe.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ol>
-          </section>
+          {/* Observe and Exit check only matter once you have run the stage, so
+              they start folded. Keeping all six blocks open at once was the bulk
+              of the reading load. */}
+          <details className="lx-fold" open>
+            <summary>
+              Observe
+              <span className="lx-fold-count">{content.observe.length} things to look at</span>
+            </summary>
+            <div className="lx-fold-body">
+              <ol>
+                {content.observe.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ol>
+            </div>
+          </details>
 
-          <section className="lx-card">
-            <span className="lx-block-label">Exit check</span>
-            <p>You may continue when all of these are true.</p>
-            {content.exitCheck.map((item) => (
-              <ExitCheckItem key={item} stageId={stage.id} label={item} />
-            ))}
-          </section>
+          <details className="lx-fold">
+            <summary>
+              Exit check
+              <span className="lx-fold-count">{content.exitCheck.length} checks</span>
+            </summary>
+            <div className="lx-fold-body">
+              <p>You may continue when all of these are true.</p>
+              {content.exitCheck.map((item) => (
+                <ExitCheckItem key={item} stageId={stage.id} label={item} />
+              ))}
+            </div>
+          </details>
         </>
       ) : (
         <PendingStage stage={stage} />
@@ -106,37 +119,56 @@ export function ConceptBlock({ concept }) {
         <p key={text}>{text}</p>
       ))}
       {concept.flow ? <pre className="lx-flow">{concept.flow}</pre> : null}
-      {concept.steps ? (
-        <div className="lx-steps" style={{ marginTop: "12px" }}>
-          {concept.steps.map((step) => (
-            <div key={step.title} className="lx-step">
-              {step.code ? <code>{step.code}</code> : null}
-              <b>{step.title}</b>
-              <p>{step.body}</p>
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {concept.table ? (
-        <table className="lx-table" style={{ marginTop: "12px" }}>
-          <thead>
-            <tr>
-              {concept.table.head.map((cell) => (
-                <th key={cell}>{cell}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {concept.table.rows.map((row, rowIndex) => (
-              <tr key={`${rowIndex}-${row[0]}`}>
-                {row.map((cell, index) => (
-                  <td key={`${index}-${cell}`}>{index === 0 ? <code>{cell}</code> : cell}</td>
+
+      {/* Step grids and reference tables are supporting detail. They stay
+          available but do not compete with the explanation above them. */}
+      {concept.steps || concept.table ? (
+        <details className="lx-inline-fold">
+          <summary>
+            {concept.steps && concept.table
+              ? "Detail: the breakdown and the reference table"
+              : concept.steps
+                ? "Detail: step by step"
+                : "Detail: reference table"}
+          </summary>
+          <div>
+            {concept.steps ? (
+              <div className="lx-steps" style={{ marginTop: "12px" }}>
+                {concept.steps.map((step) => (
+                  <div key={step.title} className="lx-step">
+                    {step.code ? <code>{step.code}</code> : null}
+                    <b>{step.title}</b>
+                    <p>{step.body}</p>
+                  </div>
                 ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              </div>
+            ) : null}
+            {concept.table ? (
+              <table className="lx-table" style={{ marginTop: "12px" }}>
+                <thead>
+                  <tr>
+                    {concept.table.head.map((cell) => (
+                      <th key={cell}>{cell}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {concept.table.rows.map((row, rowIndex) => (
+                    <tr key={`${rowIndex}-${row[0]}`}>
+                      {row.map((cell, index) => (
+                        <td key={`${index}-${cell}`}>
+                          {index === 0 ? <code>{cell}</code> : cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+          </div>
+        </details>
       ) : null}
+
       {concept.note ? <p className="lx-note">{concept.note}</p> : null}
     </section>
   );

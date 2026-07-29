@@ -202,6 +202,50 @@ export function useJob(baseUrl, endpoints) {
   return { job, error, start, cancel, starting, running };
 }
 
+/**
+ * The device models run on. Reads the server's preference rather than keeping a
+ * local copy: the device is process-wide state on the API, not a browser setting.
+ */
+export function useDevice(baseUrl, onChanged) {
+  const [device, setDevice] = useState(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setDevice(await api.device(baseUrl));
+      setError(null);
+    } catch {
+      setDevice(null);
+    }
+  }, [baseUrl]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const choose = useCallback(
+    async (preference) => {
+      setPending(true);
+      setError(null);
+      try {
+        const next = await api.setDevice(baseUrl, preference);
+        setDevice(next);
+        onChanged?.(next);
+        return next;
+      } catch (err) {
+        setError(err.message);
+        return null;
+      } finally {
+        setPending(false);
+      }
+    },
+    [baseUrl, onChanged]
+  );
+
+  return { device, choose, refresh, pending, error };
+}
+
 /** Wraps an async action with pending/error/result state so panels stay small. */
 export function useAction(action) {
   const [pending, setPending] = useState(false);
