@@ -126,7 +126,7 @@ curl -s -X POST http://127.0.0.1:8000/conversations/<CONVERSATION_ID>/messages ^
 | --- | --- |
 | 配對抽取、`-100` 遮罩、前端截斷 | [`training.py`](../../packages/llm_core/llm_core/training.py) → `ChatTranscriptDataset` |
 | 逐字稿渲染 | [`generation.py`](../../packages/llm_core/llm_core/generation.py) → `format_chat_transcript` |
-| 資料集規格 | [`training_service.py`](../../apps/api/services/training_service.py) → `chat-sft-lora` |
+| 資料集規格 | [`dataset_registry.py`](../../apps/api/services/dataset_registry.py) → `chat-sft-lora` |
 | 訓練資料 | `data/chat/chat-sft-mini.json` |
 
 ## Next stage

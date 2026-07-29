@@ -121,8 +121,8 @@ curl -s http://127.0.0.1:8000/checkpoints
 | 內容 | 位置 |
 | --- | --- |
 | 實驗紀錄寫入 | [`training_service.py`](../../apps/api/services/training_service.py) |
-| 一致性計算與說明 | 同檔案的 `compare_experiments` / `_build_comparison` |
-| `GET /training/experiments`、`GET /training/experiments/compare` | [`apps/api/main.py`](../../apps/api/main.py) |
+| 一致性計算與說明 | [`experiment_compare.py`](../../apps/api/services/experiment_compare.py) → `_compare_experiments`、`_comparison_notes` |
+| `GET /training/experiments`、`GET /training/experiments/compare` | [`training.py`](../../apps/api/routers/training.py) |
 | 實驗紀錄檔 | `models/experiments/training-experiments.jsonl`（被 git 忽略） |
 
 ## Next stage

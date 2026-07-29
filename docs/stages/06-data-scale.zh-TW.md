@@ -114,10 +114,10 @@ curl -s -X POST http://127.0.0.1:8000/training/jobs ^
 
 | 內容 | 位置 |
 | --- | --- |
-| 四個資料集規格與建議設定 | [`training_service.py`](../../apps/api/services/training_service.py) |
-| 依需求下載 | 同檔案的 `prepare_dataset` |
+| 四個資料集規格與建議設定 | [`dataset_registry.py`](../../apps/api/services/dataset_registry.py) |
+| 依需求下載 | [`training_service.py`](../../apps/api/services/training_service.py) → `prepare_dataset` |
 | 資料檔案 | `data/tiny/`、`data/small/`、`data/medium/`、`data/external/` |
-| `GET /training/datasets`、`POST /training/datasets/{id}/prepare` | [`apps/api/main.py`](../../apps/api/main.py) |
+| `GET /training/datasets`、`POST /training/datasets/{id}/prepare` | [`training.py`](../../apps/api/routers/training.py) |
 
 ## Next stage
 

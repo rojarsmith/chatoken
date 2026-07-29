@@ -124,7 +124,7 @@ You may continue when all of these are true:
 | --- | --- |
 | The generation loop, `top_k` mask, temperature branch, EOS break | [`generation.py`](../../packages/llm_core/llm_core/generation.py) → `generate` |
 | Byte decoding of generated ids | [`tokenizer.py`](../../packages/llm_core/llm_core/tokenizer.py) → `ByteTokenizer.decode` |
-| Request validation ranges | [`apps/api/main.py`](../../apps/api/main.py) → `ChatRequest` |
+| Request validation ranges | [`chat.py`](../../apps/api/schemas/chat.py) → `ChatRequest` |
 | CLI flags | [`scripts/smoke_chat.py`](../../scripts/smoke_chat.py) |
 
 ## Next stage

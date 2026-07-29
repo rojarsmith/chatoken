@@ -134,7 +134,7 @@ You may continue when all of these are true:
 | `LoRAConfig`, `LoRALinear`, `apply_lora`, `merge_lora` | [`lora.py`](../../packages/llm_core/llm_core/lora.py) |
 | Zero-init of `lora_b`, Kaiming init of `lora_a` | `LoRALinear.__init__` in the same file |
 | Merge arithmetic | `LoRALinear.merged_linear` in the same file |
-| Dataset spec and recommended settings | [`training_service.py`](../../apps/api/services/training_service.py) → `instruction-lora` |
+| Dataset spec and recommended settings | [`dataset_registry.py`](../../apps/api/services/dataset_registry.py) → `instruction-lora` |
 
 ## Next stage
 

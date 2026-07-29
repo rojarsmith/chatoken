@@ -120,7 +120,7 @@ python scripts\smoke_train.py --max-steps 80 --eval-every 10 --batch-size 8
 | `TrainingConfig` 與上表所有預設值 | [`training.py`](../../packages/llm_core/llm_core/training.py) |
 | 由 `block_size` 與 `stride` 構成視窗 | 同檔案的 `TokenDataset.__init__` |
 | `DataLoader`、`AdamW` 與步數計數 | 同檔案的 `train_tiny_language_model` |
-| 這些旋鈕在伺服器端的範圍限制 | [`apps/api/main.py`](../../apps/api/main.py) → `TrainingRequest` |
+| 這些旋鈕在伺服器端的範圍限制 | [`training.py`](../../apps/api/schemas/training.py) → `TrainingRequest` |
 | CLI 參數 | [`scripts/smoke_train.py`](../../scripts/smoke_train.py) |
 
 ## Next stage

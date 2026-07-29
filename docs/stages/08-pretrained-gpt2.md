@@ -137,7 +137,7 @@ You may continue when all of these are true:
 | Download, config translation, weight mapping | `download_and_load_gpt2`, `_load_hf_gpt2_weights` in the same file |
 | BPE tokenizer and local asset lookup | [`tokenizer.py`](../../packages/llm_core/llm_core/tokenizer.py) → `GPT2Tokenizer`, `_gpt2_assets_dir` |
 | Registering the loaded model for chat | [`pretrained_service.py`](../../apps/api/services/pretrained_service.py) |
-| `POST /pretrained/jobs`, `GET /pretrained/models` | [`apps/api/main.py`](../../apps/api/main.py) |
+| `POST /pretrained/jobs`, `GET /pretrained/models` | [`runtime.py`](../../apps/api/routers/runtime.py) |
 
 ## Next stage
 

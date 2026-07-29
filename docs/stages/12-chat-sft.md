@@ -136,7 +136,7 @@ You may continue when all of these are true:
 | --- | --- |
 | Pair extraction, `-100` masking, front truncation | [`training.py`](../../packages/llm_core/llm_core/training.py) → `ChatTranscriptDataset` |
 | Transcript rendering | [`generation.py`](../../packages/llm_core/llm_core/generation.py) → `format_chat_transcript` |
-| Dataset spec | [`training_service.py`](../../apps/api/services/training_service.py) → `chat-sft-lora` |
+| Dataset spec | [`dataset_registry.py`](../../apps/api/services/dataset_registry.py) → `chat-sft-lora` |
 | Training data | `data/chat/chat-sft-mini.json` |
 
 ## Next stage

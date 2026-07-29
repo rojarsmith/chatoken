@@ -124,9 +124,9 @@ curl -s "http://127.0.0.1:8000/training/jobs/<JOB_ID>"
 
 | 內容 | 位置 |
 | --- | --- |
-| `POST /chat/stream` 與 NDJSON 事件 | [`apps/api/main.py`](../../apps/api/main.py) → `stream_chat` |
+| `POST /chat/stream` 與 NDJSON 事件 | [`chat.py`](../../apps/api/routers/chat.py) → `stream_chat` |
 | 供串流使用的逐 token 生成 | [`chat_service.py`](../../apps/api/services/chat_service.py) |
-| 取消端點與旗標處理 | `main.py` 中的 `_cancel_chat_job`、`_cancel_training_job`、`_cancel_pretrained_job` |
+| 取消端點與旗標處理 | [`jobs/registry.py`](../../apps/api/jobs/registry.py) → `JobRegistry.cancel`——三種任務共用同一個註冊表 |
 | 訓練中的取消檢查 | [`training.py`](../../packages/llm_core/llm_core/training.py) → `_raise_if_cancelled` |
 
 ## Next stage

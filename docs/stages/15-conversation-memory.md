@@ -144,7 +144,7 @@ You may continue when all of these are true:
 | Session storage, history/budget policy, preview | [`conversation_service.py`](../../apps/api/services/conversation_service.py) |
 | Transcript rendering | [`generation.py`](../../packages/llm_core/llm_core/generation.py) → `format_chat_transcript` |
 | Hard context limit | [`model.py`](../../packages/llm_core/llm_core/model.py) → `pos_emb` bound in `forward` |
-| Conversation endpoints | [`apps/api/main.py`](../../apps/api/main.py) |
+| Conversation endpoints | [`conversations.py`](../../apps/api/routers/conversations.py) |
 
 ## Next stage
 

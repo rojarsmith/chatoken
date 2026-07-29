@@ -98,7 +98,10 @@ def main() -> int:
                     f"but the registry says {spec.output_model_id!r}"
                 )
 
-    # 3. Every stage document has both languages and the switch line.
+    # 3. Code maps point at files that still define the symbols they name.
+    problems.extend(_check_code_maps(docs))
+
+    # 4. Every stage document has both languages and the switch line.
     for doc in sorted((ROOT / "docs" / "stages").glob("*.md")):
         if doc.name.endswith(".zh-TW.md"):
             continue
@@ -120,6 +123,87 @@ def main() -> int:
         f"training examples match the registry for {len(specs)} datasets"
     )
     return 0
+
+
+CODE_MAP_RE = re.compile(r"^## Code map\n(.*?)(?=\n## |\Z)", re.S | re.M)
+PY_FILE_RE = re.compile(r"`?([\w\-]+\.py)`?")
+SYMBOL_RE = re.compile(r"`([A-Za-z_]\w*)`")
+
+
+def _symbol_index() -> dict[str, set[str]]:
+    """Every top-level definition, constant, field, and attribute, by repo path.
+
+    Keyed by path rather than bare filename: `routers/chat.py` and
+    `schemas/chat.py` both end in chat.py, and conflating them would let a wrong
+    code-map row pass.
+    """
+    index: dict[str, set[str]] = {}
+    sources = [
+        p
+        for p in list((ROOT / "apps").rglob("*.py")) + list((ROOT / "packages").rglob("*.py"))
+        if "__pycache__" not in str(p)
+    ]
+    patterns = (
+        r"^(?:def|class)\s+(\w+)",           # functions and classes
+        r"^(\w+)(?::\s*[^=]+)?\s*=",         # module constants
+        r"^\s{4}(\w+):\s*[\w\[\]|\. ]+",     # dataclass fields
+        r"self\.(\w+)\s*=",                  # instance attributes
+    )
+    for path in sources:
+        text = path.read_text(encoding="utf-8")
+        for pattern in patterns:
+            for match in re.finditer(pattern, text, re.M):
+                index.setdefault(match.group(1), set()).add(
+                    path.relative_to(ROOT).as_posix()
+                )
+    return index
+
+
+def _check_code_maps(docs: list[Path]) -> list[str]:
+    """A stage's Code map is its reader's route into the source. If the code moves
+    and the map does not, the stage quietly stops being followable — which is what
+    happened to fifteen of these when Phase 5 split main.py."""
+    index = _symbol_index()
+    problems: list[str] = []
+
+    for doc in docs:
+        match = CODE_MAP_RE.search(doc.read_text(encoding="utf-8"))
+        if not match:
+            continue
+        for line in match.group(1).split("\n"):
+            if not line.startswith("|") or "---" in line:
+                continue
+            cells = [c.strip() for c in line.strip("|").split("|")]
+            if len(cells) < 2 or cells[0] in ("What", "內容"):
+                continue
+
+            where = cells[-1]
+
+            # Prefer the link target: it is an exact path, unlike a bare filename.
+            targets = set()
+            for target in re.findall(r"\]\(([^)]+\.py)\)", where):
+                resolved = (doc.parent / target).resolve()
+                if resolved.exists():
+                    targets.add(resolved.relative_to(ROOT).as_posix())
+            if not targets:
+                # No link — fall back to matching on filename alone.
+                names = set(PY_FILE_RE.findall(where))
+                if not names:
+                    continue
+                targets = {p for paths in index.values() for p in paths
+                           if p.split("/")[-1] in names}
+                if not targets:
+                    continue
+
+            for symbol in SYMBOL_RE.findall(where):
+                if symbol not in index:
+                    continue
+                if not (index[symbol] & targets):
+                    problems.append(
+                        f"{doc.name}: code map says `{symbol}` is in "
+                        f"{sorted(targets)}, but it is defined in {sorted(index[symbol])}"
+                    )
+    return problems
 
 
 if __name__ == "__main__":

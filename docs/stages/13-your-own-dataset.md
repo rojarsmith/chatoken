@@ -150,8 +150,8 @@ You may continue when all of these are true:
 | What | Where |
 | --- | --- |
 | Builder storage, seeding, CRUD, train/eval filtering | [`training_service.py`](../../apps/api/services/training_service.py) |
-| Dataset spec | Same file → `instruction-builder` |
-| `GET/POST /training/dataset-builder`, `POST/PUT/DELETE .../examples` | [`apps/api/main.py`](../../apps/api/main.py) |
+| Dataset spec | [`dataset_registry.py`](../../apps/api/services/dataset_registry.py) → `instruction-builder` |
+| `GET/POST /training/dataset-builder`, `POST/PUT/DELETE .../examples` | [`training.py`](../../apps/api/routers/training.py) |
 | Local data file | `data/custom/instruction-builder.json` (git-ignored) |
 
 ## Next stage

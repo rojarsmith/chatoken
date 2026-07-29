@@ -122,7 +122,7 @@ You may continue when all of these are true:
 | --- | --- |
 | `save_checkpoint`, `load_checkpoint`, `list_checkpoints`, `checkpoint_metadata` | [`checkpoints.py`](../../packages/llm_core/llm_core/checkpoints.py) |
 | Version metadata construction | `_build_version_metadata` in the same file |
-| `GET /checkpoints`, `POST /models/load` | [`apps/api/main.py`](../../apps/api/main.py) |
+| `GET /checkpoints`, `POST /models/load` | [`runtime.py`](../../apps/api/routers/runtime.py) |
 | Where files land | `models/checkpoints/` (git-ignored) |
 
 ## Next stage

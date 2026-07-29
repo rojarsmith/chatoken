@@ -118,7 +118,7 @@ curl -s -X POST http://127.0.0.1:8000/chat/prompt-preview ^
 | `ByteTokenizer`、`GPT2Tokenizer`、`tokenizer_for_name` | [`packages/llm_core/llm_core/tokenizer.py`](../../packages/llm_core/llm_core/tokenizer.py) |
 | Prompt 樣板與 `prepare_chat_prompt` | [`packages/llm_core/llm_core/generation.py`](../../packages/llm_core/llm_core/generation.py) |
 | 模型設定中的 `vocab_size` | [`packages/llm_core/llm_core/configs.py`](../../packages/llm_core/llm_core/configs.py) |
-| `POST /chat/prompt-preview` | [`apps/api/main.py`](../../apps/api/main.py) → `ChatService.preview_prompt` |
+| `POST /chat/prompt-preview` | [`chat.py`](../../apps/api/routers/chat.py) → `preview_chat_prompt` |
 
 ## Next stage
 

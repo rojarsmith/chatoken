@@ -127,8 +127,8 @@ You may continue when all of these are true:
 | What | Where |
 | --- | --- |
 | Experiment record writing | [`training_service.py`](../../apps/api/services/training_service.py) |
-| Sameness computation and notes | `compare_experiments` / `_build_comparison` in the same file |
-| `GET /training/experiments`, `GET /training/experiments/compare` | [`apps/api/main.py`](../../apps/api/main.py) |
+| Sameness computation and notes | [`experiment_compare.py`](../../apps/api/services/experiment_compare.py) → `_compare_experiments`, `_comparison_notes` |
+| `GET /training/experiments`, `GET /training/experiments/compare` | [`training.py`](../../apps/api/routers/training.py) |
 | Experiment log | `models/experiments/training-experiments.jsonl` (git-ignored) |
 
 ## Next stage

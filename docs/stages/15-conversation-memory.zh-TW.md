@@ -135,7 +135,7 @@ curl -s -X DELETE http://127.0.0.1:8000/conversations/<CONVERSATION_ID>
 | 會話儲存、歷史／預算政策、預覽 | [`conversation_service.py`](../../apps/api/services/conversation_service.py) |
 | 逐字稿渲染 | [`generation.py`](../../packages/llm_core/llm_core/generation.py) → `format_chat_transcript` |
 | 硬性 context 限制 | [`model.py`](../../packages/llm_core/llm_core/model.py) → `forward` 中的 `pos_emb` 邊界 |
-| Conversation 端點 | [`apps/api/main.py`](../../apps/api/main.py) |
+| Conversation 端點 | [`conversations.py`](../../apps/api/routers/conversations.py) |
 
 ## Next stage
 

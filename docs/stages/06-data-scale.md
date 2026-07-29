@@ -118,10 +118,10 @@ You may continue when all of these are true:
 
 | What | Where |
 | --- | --- |
-| All four dataset specs and their recommended settings | [`training_service.py`](../../apps/api/services/training_service.py) |
-| Download-on-demand | `prepare_dataset` in the same file |
+| All four dataset specs and their recommended settings | [`dataset_registry.py`](../../apps/api/services/dataset_registry.py) |
+| Download-on-demand | [`training_service.py`](../../apps/api/services/training_service.py) → `prepare_dataset` |
 | Dataset files | `data/tiny/`, `data/small/`, `data/medium/`, `data/external/` |
-| `GET /training/datasets`, `POST /training/datasets/{id}/prepare` | [`apps/api/main.py`](../../apps/api/main.py) |
+| `GET /training/datasets`, `POST /training/datasets/{id}/prepare` | [`training.py`](../../apps/api/routers/training.py) |
 
 ## Next stage
 

@@ -142,7 +142,7 @@ You may continue when all of these are true:
 | --- | --- |
 | `BUILT_IN_PROMPT_TEMPLATES`, `prepare_chat_prompt`, `render_prompt_template`, `format_instruction_prompt` | [`generation.py`](../../packages/llm_core/llm_core/generation.py) |
 | Mode resolution and preview fields | [`chat_service.py`](../../apps/api/services/chat_service.py) → `preview_prompt` |
-| `POST /chat/prompt-preview` | [`apps/api/main.py`](../../apps/api/main.py) |
+| `POST /chat/prompt-preview` | [`chat.py`](../../apps/api/routers/chat.py) |
 | Per-model default style | [`configs.py`](../../packages/llm_core/llm_core/configs.py) → `prompt_style` |
 
 ## Next stage

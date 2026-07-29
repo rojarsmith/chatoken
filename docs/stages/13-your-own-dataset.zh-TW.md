@@ -140,8 +140,8 @@ curl -s -X POST http://127.0.0.1:8000/training/jobs ^
 | 內容 | 位置 |
 | --- | --- |
 | Builder 儲存、seed、CRUD、train/eval 過濾 | [`training_service.py`](../../apps/api/services/training_service.py) |
-| 資料集規格 | 同檔案 → `instruction-builder` |
-| `GET/POST /training/dataset-builder`、`POST/PUT/DELETE .../examples` | [`apps/api/main.py`](../../apps/api/main.py) |
+| 資料集規格 | [`dataset_registry.py`](../../apps/api/services/dataset_registry.py) → `instruction-builder` |
+| `GET/POST /training/dataset-builder`、`POST/PUT/DELETE .../examples` | [`training.py`](../../apps/api/routers/training.py) |
 | 本機資料檔 | `data/custom/instruction-builder.json`（被 git 忽略） |
 
 ## Next stage

@@ -136,7 +136,7 @@ curl -s -X POST http://127.0.0.1:8000/chat -H "Content-Type: application/json" -
 | --- | --- |
 | `BUILT_IN_PROMPT_TEMPLATES`、`prepare_chat_prompt`、`render_prompt_template`、`format_instruction_prompt` | [`generation.py`](../../packages/llm_core/llm_core/generation.py) |
 | 模式解析與預覽欄位 | [`chat_service.py`](../../apps/api/services/chat_service.py) → `preview_prompt` |
-| `POST /chat/prompt-preview` | [`apps/api/main.py`](../../apps/api/main.py) |
+| `POST /chat/prompt-preview` | [`chat.py`](../../apps/api/routers/chat.py) |
 | 各模型的預設樣式 | [`configs.py`](../../packages/llm_core/llm_core/configs.py) → `prompt_style` |
 
 ## Next stage

@@ -134,9 +134,9 @@ You may continue when all of these are true:
 
 | What | Where |
 | --- | --- |
-| `POST /chat/stream` and NDJSON events | [`apps/api/main.py`](../../apps/api/main.py) → `stream_chat` |
+| `POST /chat/stream` and NDJSON events | [`chat.py`](../../apps/api/routers/chat.py) → `stream_chat` |
 | Token-by-token generation for streaming | [`chat_service.py`](../../apps/api/services/chat_service.py) |
-| Cancel endpoints and flag handling | `_cancel_chat_job`, `_cancel_training_job`, `_cancel_pretrained_job` in `main.py` |
+| Cancel endpoints and flag handling | [`jobs/registry.py`](../../apps/api/jobs/registry.py) → `JobRegistry.cancel` — one registry for all three job types |
 | The cancellation check inside training | [`training.py`](../../packages/llm_core/llm_core/training.py) → `_raise_if_cancelled` |
 
 ## Next stage

@@ -143,7 +143,7 @@ npm run start -- --port 3000
 | 內容 | 位置 |
 | --- | --- |
 | Profile、限制與所有估算池 | [`deployment_service.py`](../../apps/api/services/deployment_service.py) |
-| `GET /deployment/profile`、`POST /deployment/estimate` | [`apps/api/main.py`](../../apps/api/main.py) |
+| `GET /deployment/profile`、`POST /deployment/estimate` | [`deployment.py`](../../apps/api/routers/deployment.py) |
 | Web 端 API base URL | `apps/web/.env.example` → `NEXT_PUBLIC_API_BASE_URL` |
 | 裝置選擇 | service 層的 `torch.cuda.is_available()` |
 

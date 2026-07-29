@@ -135,8 +135,8 @@ You may continue when all of these are true:
 | The loop itself | `train_tiny_language_model` in the same file |
 | Checkpoint writing | [`checkpoints.py`](../../packages/llm_core/llm_core/checkpoints.py) → `save_checkpoint` |
 | CLI entry point | [`scripts/smoke_train.py`](../../scripts/smoke_train.py) |
-| Dataset registry entry | [`training_service.py`](../../apps/api/services/training_service.py) → `every-effort` |
-| `POST /training/jobs` | [`apps/api/main.py`](../../apps/api/main.py) |
+| Dataset registry entry | [`dataset_registry.py`](../../apps/api/services/dataset_registry.py) → `every-effort` |
+| `POST /training/jobs` | [`training.py`](../../apps/api/routers/training.py) |
 
 ## Next stage
 

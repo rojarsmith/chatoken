@@ -129,7 +129,7 @@ curl -s -X POST http://127.0.0.1:8000/chat ^
 | 下載、設定轉換、權重對應 | 同檔案的 `download_and_load_gpt2`、`_load_hf_gpt2_weights` |
 | BPE tokenizer 與本地資產查找 | [`tokenizer.py`](../../packages/llm_core/llm_core/tokenizer.py) → `GPT2Tokenizer`、`_gpt2_assets_dir` |
 | 把載入的模型註冊給 chat 使用 | [`pretrained_service.py`](../../apps/api/services/pretrained_service.py) |
-| `POST /pretrained/jobs`、`GET /pretrained/models` | [`apps/api/main.py`](../../apps/api/main.py) |
+| `POST /pretrained/jobs`、`GET /pretrained/models` | [`runtime.py`](../../apps/api/routers/runtime.py) |
 
 ## Next stage
 

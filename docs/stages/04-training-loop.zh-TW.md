@@ -124,8 +124,8 @@ curl -s "http://127.0.0.1:8000/training/jobs/<JOB_ID>"
 | 訓練迴圈本體 | 同檔案的 `train_tiny_language_model` |
 | 寫出 checkpoint | [`checkpoints.py`](../../packages/llm_core/llm_core/checkpoints.py) → `save_checkpoint` |
 | CLI 進入點 | [`scripts/smoke_train.py`](../../scripts/smoke_train.py) |
-| 資料集註冊項目 | [`training_service.py`](../../apps/api/services/training_service.py) → `every-effort` |
-| `POST /training/jobs` | [`apps/api/main.py`](../../apps/api/main.py) |
+| 資料集註冊項目 | [`dataset_registry.py`](../../apps/api/services/dataset_registry.py) → `every-effort` |
+| `POST /training/jobs` | [`training.py`](../../apps/api/routers/training.py) |
 
 ## Next stage
 

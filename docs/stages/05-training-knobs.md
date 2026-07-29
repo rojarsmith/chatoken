@@ -126,7 +126,7 @@ You may continue when all of these are true:
 | `TrainingConfig` and every default above | [`training.py`](../../packages/llm_core/llm_core/training.py) |
 | Window construction from `block_size` and `stride` | `TokenDataset.__init__` in the same file |
 | `DataLoader`, `AdamW`, and the step counter | `train_tiny_language_model` in the same file |
-| Server-side ranges for the same knobs | [`apps/api/main.py`](../../apps/api/main.py) → `TrainingRequest` |
+| Server-side ranges for the same knobs | [`training.py`](../../apps/api/schemas/training.py) → `TrainingRequest` |
 | CLI flags | [`scripts/smoke_train.py`](../../scripts/smoke_train.py) |
 
 ## Next stage

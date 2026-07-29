@@ -129,7 +129,7 @@ curl -s -X POST http://127.0.0.1:8000/chat -H "Content-Type: application/json" -
 | `LoRAConfig`、`LoRALinear`、`apply_lora`、`merge_lora` | [`lora.py`](../../packages/llm_core/llm_core/lora.py) |
 | `lora_b` 零初始化、`lora_a` Kaiming 初始化 | 同檔案的 `LoRALinear.__init__` |
 | 合併運算 | 同檔案的 `LoRALinear.merged_linear` |
-| 資料集規格與建議設定 | [`training_service.py`](../../apps/api/services/training_service.py) → `instruction-lora` |
+| 資料集規格與建議設定 | [`dataset_registry.py`](../../apps/api/services/dataset_registry.py) → `instruction-lora` |
 
 ## Next stage
 

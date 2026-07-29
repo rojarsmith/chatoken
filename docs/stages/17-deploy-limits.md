@@ -150,7 +150,7 @@ The course is complete when all of these are true:
 | What | Where |
 | --- | --- |
 | Profile, limits, and every estimate pool | [`deployment_service.py`](../../apps/api/services/deployment_service.py) |
-| `GET /deployment/profile`, `POST /deployment/estimate` | [`apps/api/main.py`](../../apps/api/main.py) |
+| `GET /deployment/profile`, `POST /deployment/estimate` | [`deployment.py`](../../apps/api/routers/deployment.py) |
 | Web API base URL | `apps/web/.env.example` → `NEXT_PUBLIC_API_BASE_URL` |
 | Device selection | `torch.cuda.is_available()` in the service layer |
 

@@ -134,8 +134,8 @@ curl -s -X POST http://127.0.0.1:8000/chat ^
 | --- | --- |
 | instruction 範例渲染 | [`training.py`](../../packages/llm_core/llm_core/training.py) → `InstructionDataset` |
 | instruction 樣板 | [`generation.py`](../../packages/llm_core/llm_core/generation.py) → `format_instruction_prompt` |
-| 資料集規格與建議設定 | [`training_service.py`](../../apps/api/services/training_service.py) → `instruction-following` |
-| `POST /training/jobs` | [`apps/api/main.py`](../../apps/api/main.py) |
+| 資料集規格與建議設定 | [`dataset_registry.py`](../../apps/api/services/dataset_registry.py) → `instruction-following` |
+| `POST /training/jobs` | [`training.py`](../../apps/api/routers/training.py) |
 
 ## Next stage
 

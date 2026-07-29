@@ -123,7 +123,7 @@ You may continue when all of these are true:
 | `ByteTokenizer`, `GPT2Tokenizer`, `tokenizer_for_name` | [`packages/llm_core/llm_core/tokenizer.py`](../../packages/llm_core/llm_core/tokenizer.py) |
 | Prompt templates and `prepare_chat_prompt` | [`packages/llm_core/llm_core/generation.py`](../../packages/llm_core/llm_core/generation.py) |
 | `vocab_size` in the model config | [`packages/llm_core/llm_core/configs.py`](../../packages/llm_core/llm_core/configs.py) |
-| `POST /chat/prompt-preview` | [`apps/api/main.py`](../../apps/api/main.py) → `ChatService.preview_prompt` |
+| `POST /chat/prompt-preview` | [`chat.py`](../../apps/api/routers/chat.py) → `preview_chat_prompt` |
 
 ## Next stage
 

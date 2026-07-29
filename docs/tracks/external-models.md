@@ -134,7 +134,7 @@ Open `http://127.0.0.1:3000` and pick **External providers** from the Workbench 
 | What | Where |
 | --- | --- |
 | Provider registry, env config, request building | [`external_model_service.py`](../../apps/api/services/external_model_service.py) |
-| `GET /external/models`, `POST /external/prompt-preview`, `POST /external/chat` | [`apps/api/main.py`](../../apps/api/main.py) |
+| `GET /external/models`, `POST /external/prompt-preview`, `POST /external/chat` | [`external.py`](../../apps/api/routers/external.py) |
 | Browser-visible config | `apps/web/.env.example` — `NEXT_PUBLIC_` only, never secrets |
 
 ## Back to the course

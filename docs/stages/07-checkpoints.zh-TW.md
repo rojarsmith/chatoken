@@ -116,7 +116,7 @@ python -c "import torch; p = torch.load(r'models/checkpoints/YOUR_FILE.pt', map_
 | --- | --- |
 | `save_checkpoint`、`load_checkpoint`、`list_checkpoints`、`checkpoint_metadata` | [`checkpoints.py`](../../packages/llm_core/llm_core/checkpoints.py) |
 | 版本中繼資料建構 | 同檔案的 `_build_version_metadata` |
-| `GET /checkpoints`、`POST /models/load` | [`apps/api/main.py`](../../apps/api/main.py) |
+| `GET /checkpoints`、`POST /models/load` | [`runtime.py`](../../apps/api/routers/runtime.py) |
 | 檔案落點 | `models/checkpoints/`（被 git 忽略） |
 
 ## Next stage

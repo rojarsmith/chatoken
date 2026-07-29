@@ -126,7 +126,7 @@ curl -s -X POST http://127.0.0.1:8000/chat ^
 | 內容 | 位置 |
 | --- | --- |
 | 供應商註冊、環境設定、請求建構 | [`external_model_service.py`](../../apps/api/services/external_model_service.py) |
-| `GET /external/models`、`POST /external/prompt-preview`、`POST /external/chat` | [`apps/api/main.py`](../../apps/api/main.py) |
+| `GET /external/models`、`POST /external/prompt-preview`、`POST /external/chat` | [`external.py`](../../apps/api/routers/external.py) |
 | 瀏覽器可見的設定 | `apps/web/.env.example` — 只放 `NEXT_PUBLIC_`，絕不放機密 |
 
 ## 回到課程

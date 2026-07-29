@@ -141,8 +141,8 @@ You may continue when all of these are true:
 | --- | --- |
 | Instruction example rendering | [`training.py`](../../packages/llm_core/llm_core/training.py) → `InstructionDataset` |
 | The instruction template | [`generation.py`](../../packages/llm_core/llm_core/generation.py) → `format_instruction_prompt` |
-| Dataset spec and recommended settings | [`training_service.py`](../../apps/api/services/training_service.py) → `instruction-following` |
-| `POST /training/jobs` | [`apps/api/main.py`](../../apps/api/main.py) |
+| Dataset spec and recommended settings | [`dataset_registry.py`](../../apps/api/services/dataset_registry.py) → `instruction-following` |
+| `POST /training/jobs` | [`training.py`](../../apps/api/routers/training.py) |
 
 ## Next stage
 

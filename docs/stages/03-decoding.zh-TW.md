@@ -117,7 +117,7 @@ curl -s -X POST http://127.0.0.1:8000/chat ^
 | --- | --- |
 | 生成迴圈、`top_k` 遮罩、temperature 分支、EOS 中斷 | [`generation.py`](../../packages/llm_core/llm_core/generation.py) → `generate` |
 | 生成 id 的位元組解碼 | [`tokenizer.py`](../../packages/llm_core/llm_core/tokenizer.py) → `ByteTokenizer.decode` |
-| 請求驗證範圍 | [`apps/api/main.py`](../../apps/api/main.py) → `ChatRequest` |
+| 請求驗證範圍 | [`chat.py`](../../apps/api/schemas/chat.py) → `ChatRequest` |
 | CLI 參數 | [`scripts/smoke_chat.py`](../../scripts/smoke_chat.py) |
 
 ## Next stage
